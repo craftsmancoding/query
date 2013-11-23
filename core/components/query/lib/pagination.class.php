@@ -277,7 +277,7 @@ class Pagination {
 	private function _parse($tpl, $record) {
 
 		foreach ($record as $key => $value) {
-			$tpl = str_replace('[+'.$key.'+]', $value, $tpl);
+			$tpl = str_replace('[[+'.$key.']]', $value, $tpl);
 		}
 		return $tpl;
 	}

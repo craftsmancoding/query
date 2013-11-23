@@ -120,3 +120,7 @@ table tr:hover td{
         </tbody>
     </table>
 </div>
+
+<?php
+print $pagination_links;
+?>
