@@ -1,4 +1,4 @@
-query
+Query
 =====
 
-Query offers a Snippet interface for querying any database collection, e.g. as an alternative to getResources
+Query offers a Snippet interface for querying any MODX database collection and formatting the output.
