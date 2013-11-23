@@ -1,6 +1,6 @@
 <?php
 /**
- * Query snippet for Query extra
+ * Query
  *
  * Copyright 2013 by Everett Griffiths <everett@craftsmancoding.com>
  * Created on 05-12-2013
@@ -24,7 +24,7 @@
 /**
  * Description
  * -----------
- * A generic utility used for querying any database collection.
+ * A generic utility used for querying any MODX database collection.
  *
  * Input Operators
  *  Apply these to the end of any parameter name with a colon, e.g. &firstname:LIKE=`Sue`
@@ -53,6 +53,8 @@
 // return print_r($modx->classMap,true);
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH);
 
+// Restricted properties (cannot use the get: and post: convenience methods)
+
 // Process the raw $scriptProperties into filters and control_params.
 // We need to translate stuff here due to limitations in the Snippet Syntax.
 // See http://rtfm.modx.com/xpdo/2.x/class-reference/xpdoquery/xpdoquery.where
@@ -75,8 +77,10 @@ foreach ($scriptProperties as $k => $v) {
     }
 
     $raw_k = $k;
+    $operator = '=';
     if ($pos = strpos($k,':')) {
         $raw_k = substr($k,0,$pos);
+        $operator = substr($k,$pos);
     }
     
     // Optionally read out of the $_GET or $_POST arrays
@@ -100,7 +104,6 @@ foreach ($scriptProperties as $k => $v) {
     }
     unset($scriptProperties['_op_'.$k]);
     $filters[$k] = $v;
-    
 }
 
 //return '<textarea rows="40" cols="80">'.print_r($filters,true).'</textarea>';
@@ -122,8 +125,11 @@ $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOpti
 $config = basename($modx->getOption('_config', $control_params,'default'),'.config.php');
 $debug = (int) $modx->getOption('_debug', $control_params);
 $json = (int) $modx->getOption('_json', $control_params);
+$decode = $modx->getOption('_decode', $control_params);
 
 $old_log_level = $modx->setLogLevel($log_level);
+
+
 
 
 //return '<textarea rows="40" cols="80">'.print_r($scriptProperties,true).'</textarea>';
@@ -212,7 +218,6 @@ if ($total_pages > $limit) {
     $P->set_offset($offset); 
     $P->set_results_per_page($limit);
     $tpls = require $core_path.'components/query/lib/'.$config.'.config.php';
-//    return '<textarea>'.print_r($tpls,true).'</textarea>';
     $P->set_tpls($tpls);
     $pagination_links = $P->paginate($total_pages);
 }
