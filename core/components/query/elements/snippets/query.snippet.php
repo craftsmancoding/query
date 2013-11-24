@@ -43,8 +43,9 @@
  * @var $modx modX
  * @var $scriptProperties array
  *
- $xpdo->getAggregates() and getComposites() or you can access the $obj->_aggregates and $obj->_composites directly
+ $modx->getAggregates() and getComposites() or you can access the $obj->_aggregates and $obj->_composites directly
  $graph = $xpdo->getGraph('Classname', 1)
+ print_r($modx->classMap) -- lets you trace out all avail. objects
  * @package query
  **/
 //return '<textarea rows="40" cols="80">'.print_r($scriptProperties,true).'</textarea>';
@@ -93,6 +94,8 @@ foreach ($scriptProperties as $k => $v) {
         $v = $modx->getOption(substr($v,5), $_POST);
         $modx->setPlaceholder('query.'.$raw_k,htmlspecialchars($v));
     }
+    // split
+    // decode
 
     $k = str_replace($modified_operators, $standard_operators, $k);
     if (strtolower($v) == 'null') {
@@ -125,7 +128,6 @@ $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOpti
 $config = basename($modx->getOption('_config', $control_params,'default'),'.config.php');
 $debug = (int) $modx->getOption('_debug', $control_params);
 $json = (int) $modx->getOption('_json', $control_params);
-$decode = $modx->getOption('_decode', $control_params);
 
 $old_log_level = $modx->setLogLevel($log_level);
 
