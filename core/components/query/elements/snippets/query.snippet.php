@@ -1,32 +1,41 @@
 <?php
 /**
- * Query
+ * @name Query
+ * @description A generic utility used for querying any MODX database collection.
  *
  * Copyright 2013 by Everett Griffiths <everett@craftsmancoding.com>
  * Created on 05-12-2013
+ * 
+ * Control Parameters
+ * ------------------
+ * All "control" parameters begin with an underscore. They affect the functionality or formatting of the output.
  *
- * Query is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2 of the License, or (at your option) any later
- * version.
+ *  _object (string) classname of the object collection you are querying. Default: modResource
+ *  _pkg (string) colon-separated string defining the arguments for addPackage() -- 
+ *      package_name, model_path, and optionally table_prefix  
+ *      e.g. `tiles:[[++core_path]]components/tiles/model/:tiles_` or 
+ *      If only the package name is supplied, the path is assumed to be "[[++core_path]]components/$package_name/model/"
+ *  _tpl (string) chunk to format each record in the collection
+ *  _tplOuter (string) chunk to wrap the result set. Requires the [[+content]] placeholder.
+ *  _limit (integer) limits the number of results returned, also sets the results shown per page. 
+ *  _offset (integer) offsets the first record returned, e.g. for pagination.
+ *  _sortby (string) column to sort by
+ *  _sortdir (string) sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
+ *  _sql (string) used to issue a raw SQL query.
+ *  _graph (string) triggers a getCollectionGraph.
+ *  _select (string) controls which columns to select for a getCollection. Ignored when _graph is set. Default: *
+ *  _config (string) sets a pagination formatting pallette.
+ *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
+ *  _debug (integer) triggers debugging information to be set.
  *
- * Query is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * Filter Paramters
+ * ----------------
+ * All other parameters act as filters and they depend on the collection being queried. 
+ * Any parameter that does not begin with an underscore is considered a filter parameter.
  *
- * You should have received a copy of the GNU General Public License along with
- * Query; if not, write to the Free Software Foundation, Inc., 59 Temple
- * Place, Suite 330, Boston, MA 02111-1307 USA
- *
- * @package query
- */
-
-/**
- * Description
- * -----------
- * A generic utility used for querying any MODX database collection.
  *
  * Input Operators
+ * ---------------
  *  Apply these to the end of any parameter name with a colon, e.g. &firstname:LIKE=`Sue`
  *  E          =   equals
  *  NE         !=  not equal
@@ -52,6 +61,13 @@
 
 //return '<textarea rows="40" cols="80">'.$graph = $modx->getGraph('modUser').'</textarea>';
 // return print_r($modx->classMap,true);
+
+
+function QUERY_get($val){
+
+}
+
+
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH);
 
 // Restricted properties (cannot use the get: and post: convenience methods)
@@ -131,7 +147,18 @@ $json = (int) $modx->getOption('_json', $control_params);
 
 $old_log_level = $modx->setLogLevel($log_level);
 
-
+if ($pkg) {
+    $parts = explode(':',$pkg);
+    if (isset($parts[2])) {
+        $modx->addPackage($parts[0],$parts[1],$parts[2]);     
+    }
+    elseif(isset($parts[1])) {
+        $modx->addPackage($parts[0],$parts[1]);
+    }
+    else {
+        $modx->addPackage($parts[0],MODX_CORE_PATH.'components/'.$parts[0].'/model/');
+    }
+}
 
 
 //return '<textarea rows="40" cols="80">'.print_r($scriptProperties,true).'</textarea>';
