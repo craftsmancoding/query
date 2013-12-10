@@ -1,7 +1,7 @@
 <?php
 /**
  * @name Query
- * @description A generic utility used for querying any MODX database collection.
+ * @description A generic utility/interface used for querying any MODX database collection.
  *
  * Copyright 2013 by Everett Griffiths <everett@craftsmancoding.com>
  * Created on 05-12-2013
@@ -17,6 +17,9 @@
  *      If only the package name is supplied, the path is assumed to be "[[++core_path]]components/$package_name/model/"
  *  _tpl (string) chunk to format each record in the collection
  *  _tplOuter (string) chunk to wrap the result set. Requires the [[+content]] placeholder.
+ *  _view (string) oldschool php file to format the output, see the views folder.  
+ *      Some samples are provided, e.g. 'table', 'json'. If _tpl
+ *      and _tplOuter are provided, the _view parameter is ignored.  Default: table.php
  *  _limit (integer) limits the number of results returned, also sets the results shown per page. 
  *  _offset (integer) offsets the first record returned, e.g. for pagination.
  *  _sortby (string) column to sort by
@@ -43,9 +46,37 @@
  *  LT         <   less than
  *  GTE        >=  greater than or equal to
  *  LTE        <=  less than or equal to
+ *  LIKE       LIKE -- Query will automatically quote the input value as '%value%'
  *  NOT_LIKE   NOT LIKE
  *  NOT_IN     NOT IN
  *  IN         IN
+ *  STARTS_WITH behaves like "LIKE", but quotes the value as 'value%'
+ *  ENDS_WITH behaves like "LIKE", but quotes the value as '%value' 
+ *
+ * 
+ * Value Modifiers
+ * ---------------
+ * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query Snippet supports 
+ * dynamic inputs via its own "value modifiers" that mimic the syntax used by MODX for its output 
+ * filters (aka "output modifiers).  This is useful for building search forms or enabling pagination.  
+ * For example, you can change the &_sortby argument dynamically by setting a URL parameter, then you 
+ * can adjust your Query snippet call to read the "sortby" $_GET variable:
+ *
+ *      [[!Query? &_sortby=`sortby:get`]]
+ *
+ * There are 2 value modifiers included:
+ *  get : causes the named value to read from the $_GET array.  $options = default value.
+ *  post : causes the named value to read from the $_POST array. $options = default value. 
+ *  decode : runs json_decode on the input. Useful if you need to pass an array as an argument.
+ *
+ * You can also supply your own Snippet names to be used as value modifiers. They should accept the following inputs:
+ *  $input : the value sent to the snippet.  E.g. in &_sortby=`xyz:get`, the $input is "xyz"
+ *  $options : any extra option. E.g. &_sortby=`xyz:get=123`, the $options is "123". These may be quoted any way you prefer.
+ *
+ * WARNING: use these with extreme caution! Query does not perform any data sanitization, so these
+ * could be exploited via SQL injection if you exposed a value that should not be exposed (like &_sql).
+ * 
+ * 
  *
  * Variables
  * ---------
@@ -57,16 +88,8 @@
  print_r($modx->classMap) -- lets you trace out all avail. objects
  * @package query
  **/
-//return '<textarea rows="40" cols="80">'.print_r($scriptProperties,true).'</textarea>';
-
 //return '<textarea rows="40" cols="80">'.$graph = $modx->getGraph('modUser').'</textarea>';
 // return print_r($modx->classMap,true);
-
-
-function QUERY_get($val){
-
-}
-
 
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH);
 
@@ -77,46 +100,88 @@ $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH);
 // See http://rtfm.modx.com/xpdo/2.x/class-reference/xpdoquery/xpdoquery.where
 $control_params = array(); $scriptProperties; // not a reference!
 $filters = array();
-$modified_operators = array(':E',':NE',':GT',':LT',':GTE',':LTE',':NOT_LIKE',':NOT_IN');
-$standard_operators = array(':=',':!=',':>',':<',':>=',':<=',':NOT LIKE',':NOT IN');
 foreach ($scriptProperties as $k => $v) {
+
+    // Dynamically modify values via our "input filters"
+    $filter = null;
+    $raw_k = $k;
+    preg_match("/^(.*):((\w+)(=['`\"]?([^'`\"]*)['`\"]?)?)$/i", $v, $matches);
+    if ($matches) {
+        $filter = (isset($matches[3]))? $matches[3] : '';
+        $x = (isset($matches[1]))? $matches[1] : ''; // whatever's to the left of the filter
+        $y = (isset($matches[4]))? $matches[4] : ''; // any option, e.g. :get="my-default"
+        $raw_k = $x;
+        if (strtolower($filter) == 'get') {
+            $v = (isset($_GET[$x]))? $_GET[$x]: $y;
+        }
+        // Don't use getOption here because it will read db config data if there is no $_POST data
+        elseif (strtolower($filter) == 'post') {
+            $v = (isset($_POST[$x]))? $_POST[$x]: $y;
+        }
+        elseif (strtolower($filter) == 'decode') {
+            $v = json_decode($matches[1]);
+        }
+        else {
+            $v = $modx->runSnippet($filter,array('input'=>$x,'options'=>$y));
+        }
+    }
+
     // All control_params begin with an underscore
     if ($k[0] == '_') {
-        if (strtolower(substr($v,0,4)) == 'get:') {
-            $v = $modx->getOption(substr($v,4), $_GET);
-        }
-        elseif (strtolower(substr($v,0,5)) == 'post:') {
-            $v = $modx->getOption(substr($v,5), $_POST);
-        }
         $control_params[$k] = $v;
         unset($scriptProperties[$k]);
         continue;
     }
-
-    $raw_k = $k;
-    $operator = '=';
-    if ($pos = strpos($k,':')) {
-        $raw_k = substr($k,0,$pos);
-        $operator = substr($k,$pos);
+    $modx->toPlaceholder($raw_k,htmlspecialchars($v),'query');
+    
+    // Modify the keys (i.e. translate the syntax)
+    if (strtolower(substr($k,-2))==':e') {
+        $k = substr($k,0,-2).':=';
+    }
+    elseif (strtolower(substr($k,-3))==':ne') {
+        $k = substr($k,0,-3).':!=';
+    }
+    elseif (strtolower(substr($k,-3))==':gt') {
+        $k = substr($k,0,-3).':>';
+    }
+    elseif (strtolower(substr($k,-4))==':gte') {
+        $k = substr($k,0,-4).':>=';
+    }
+    elseif (strtolower(substr($k,-3))==':lt') {
+        $k = substr($k,0,-3).':<';
+    }
+    elseif (strtolower(substr($k,-4))==':lte') {
+        $k = substr($k,0,-4).':<=';
+    }
+    elseif (strtolower(substr($k,-5))==':like') {
+        $v = '%'.trim($v,'%').'%';
+    }
+    elseif (strtolower(substr($k,-9))==':not_like') {
+        $k = substr($k,0,-9).':NOT LIKE';
+        $v = '%'.trim($v,'%').'%';
+    }
+    elseif (strtolower(substr($k,-3))==':in') {
+        $v = (!is_array($v))? explode(',',$v):$v;
+        $v = array_map('trim', $v);
+    }
+    elseif (strtolower(substr($k,-7))==':not_in') {
+        $k = substr($k,0,-7).':NOT IN';
+        $v = (!is_array($v))? explode(',',$v):$v;
+        $v = array_map('trim', $v);
+    }
+    elseif (strtolower(substr($k,-12))==':starts_with') {
+        $k = substr($k,0,-12).':LIKE';
+        $v = trim($v,'%').'%';
+    }
+    elseif (strtolower(substr($k,-10))==':ends_with') {
+        $k = substr($k,0,-10).':LIKE';
+        $v = '%'.trim($v,'%');
     }
     
-    // Optionally read out of the $_GET or $_POST arrays
-    if (strtolower(substr($v,0,4)) == 'get:') {
-        $v = $modx->getOption(substr($v,4), $_GET);
-        $modx->setPlaceholder('query.'.$raw_k,htmlspecialchars($v));
-
-    }
-    elseif (strtolower(substr($v,0,5)) == 'post:') {
-        $v = $modx->getOption(substr($v,5), $_POST);
-        $modx->setPlaceholder('query.'.$raw_k,htmlspecialchars($v));
-    }
-    // split
-    // decode
-
-    $k = str_replace($modified_operators, $standard_operators, $k);
     if (strtolower($v) == 'null') {
         $v = null;
     }
+    
     // Manually set an operator
     if (isset($scriptProperties['_op_'.$k])) {
         $k = $k.':'.ltrim($scriptProperties['_op_'.$k],':');
@@ -125,13 +190,13 @@ foreach ($scriptProperties as $k => $v) {
     $filters[$k] = $v;
 }
 
-//return '<textarea rows="40" cols="80">'.print_r($filters,true).'</textarea>';
 
 $object = $modx->getOption('_object', $control_params,'modResource');
 $pkg = $modx->getOption('_pkg', $control_params);
 // $xpdo->addPackage('moxycart',$adjusted_core_path.'components/moxycart/model/','moxy_')
 $tpl = $modx->getOption('_tpl', $control_params);
 $tplOuter = $modx->getOption('_tplOuter', $control_params);
+$view = $modx->getOption('_view', $control_params,'table');
 $limit = (int) $modx->getOption('_limit', $control_params);
 $sortby = $modx->getOption('_sortby', $control_params);
 $sortdir = $modx->getOption('_sortdir', $control_params,'ASC'); 
@@ -143,7 +208,6 @@ $select = $modx->getOption('_select', $control_params,'*');
 $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOption('log_level'));
 $config = basename($modx->getOption('_config', $control_params,'default'),'.config.php');
 $debug = (int) $modx->getOption('_debug', $control_params);
-$json = (int) $modx->getOption('_json', $control_params);
 
 $old_log_level = $modx->setLogLevel($log_level);
 
@@ -160,9 +224,6 @@ if ($pkg) {
     }
 }
 
-
-//return '<textarea rows="40" cols="80">'.print_r($scriptProperties,true).'</textarea>';
-//return $object;
 $data = array();
 $total_pages = 0;
 if ($sql) {
@@ -175,9 +236,9 @@ else {
         $cols = explode(',',$select);
         $cols = array_map('trim', $cols);
     }
-    
+
     $criteria = $modx->newQuery($object);
-    // Graphing potentially needs *all* fields to function, so limiting it is not rec'd
+    // Graphing potentially needs *all* fields to function, so forcefully restricting it via "select" it is not rec'd
     if (!$graph) {
         $criteria->select($select);
     }
@@ -197,8 +258,14 @@ else {
     // TODO: More info displayed here
     if ($debug) {
         $criteria->prepare();
-        // $x = $modx->getComposites($object);        
-        return '<div><h3>Raw SQL</h3><textarea rows="20" cols="60">'.$criteria->toSQL().'</textarea></div>';
+        return '<div><h3>Raw SQL</h3><textarea rows="10" cols="60">'.$criteria->toSQL().'</textarea>
+            <h3>POST</h3>
+            <textarea rows="10" cols="60">'.print_r($_POST,true).'</textarea>
+            <h3>Control Parameters</h3>
+            <textarea rows="10" cols="60">'.print_r($control_params,true).'</textarea>
+            <h3>Filters</h3>
+            <textarea rows="10" cols="60">'.print_r($filters,true).'</textarea>
+        </div>';
     }
 
     foreach ($results as $r) {
@@ -209,12 +276,13 @@ else {
         else {
             $keys = $modx->toPlaceholders($r->toArray(),'tmp'); // without period
         }
+
         $this_row = array();
         // Cols are set only when $graph && $select
         if ($cols) {
             foreach ($cols as $k) {
                 // $k seems to come out clean when $select is used
-                $this_row[$k] = $modx->getPlaceholder('tmp'.$k); // with period
+                $this_row[$k] = $modx->getPlaceholder('tmp.'.$k); // with period
             }
         }
         else {
@@ -228,13 +296,8 @@ else {
 
 }
 
-// Useful if this is to supply an Ajax request
-if ($json) {
-    $data = array(
-        'results' => $data,
-        'total' => $total_pages,
-    );
-    return json_encode($data);
+if (empty($data)) {
+    return '';
 }
 
 $out = '';
@@ -253,8 +316,16 @@ if ($total_pages > $limit) {
 
 // Default formatting
 if (!$tpl && !$tplOuter) {
+    $view_file = $core_path.'components/query/views/'.basename($view,'.php').'.php';    
+    if (!file_exists($view_file)) {
+        $view_file = $view;
+        if (!file_exists($view_file)) {
+            $modx->log(xPDO::LOG_LEVEL_ERROR,'[Query] The view file '.$view_file.' does not exist.');
+            return 'The view file '.htmlspecialchars($view_file).' does not exist.';
+        }
+    }
     ob_start();
-    include $core_path.'components/query/views/table.php';
+    include $view_file;
     $out = ob_get_contents();
     ob_end_clean();
 }
@@ -267,17 +338,10 @@ if ($tplOuter) {
     $out = $modx->getChunk($tplOuter, array('content'=>$out));
 }
 
+// Set placeholders
+$modx->setPlaceholder('page_count',$total_pages);
+$modx->setPlaceholder('results',$out);
 
 $modx->setLogLevel($old_log_level);
 
-return $out; 
-/*
-. '<div>
-    <h3>POST</h3>
-    <textarea rows="10" cols="60">'.print_r($_POST,true).'</textarea>
-    <h3>Filters</h3>
-    <textarea rows="10" cols="60">'.print_r($filters,true).'</textarea>
-
-    <h3>Raw SQL</h3><textarea rows="20" cols="60">'.$criteria->toSQL().'</textarea>
-    </div>';
-*/
+return $out;
