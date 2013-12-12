@@ -65,6 +65,7 @@
  *      [[!Query? &_sortby=`sortby:get`]]
  *
  * There are 2 value modifiers included:
+ *
  *  get : causes the named value to read from the $_GET array.  $options = default value.
  *  post : causes the named value to read from the $_POST array. $options = default value. 
  *  decode : runs json_decode on the input. Useful if you need to pass an array as an argument.
@@ -190,10 +191,9 @@ foreach ($scriptProperties as $k => $v) {
     $filters[$k] = $v;
 }
 
-
+// Read the control arguments
 $object = $modx->getOption('_object', $control_params,'modResource');
 $pkg = $modx->getOption('_pkg', $control_params);
-// $xpdo->addPackage('moxycart',$adjusted_core_path.'components/moxycart/model/','moxy_')
 $tpl = $modx->getOption('_tpl', $control_params);
 $tplOuter = $modx->getOption('_tplOuter', $control_params);
 $view = $modx->getOption('_view', $control_params,'table');
@@ -297,6 +297,7 @@ else {
 }
 
 if (empty($data)) {
+    $modx->log(xPDO::LOG_LEVEL_DEBUG,'[Query] No output.');
     return '';
 }
 
