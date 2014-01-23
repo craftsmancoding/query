@@ -15,16 +15,16 @@ Fetch pages matching a certain template:
 
 Find users whose usernames begin with "B" and format the results using a chunk:
 
-    [[!Query? &_object=`modUser` &username:STARTS_WITH=`b` &_tpl=`myUser` &_tplOuter=`allUsers`]]
+    [[!Query? &_classname=`modUser` &username:STARTS_WITH=`b` &_tpl=`myUser` &_tplOuter=`allUsers`]]
     
 Paginate all manager events whose names begin with "namespace" and set a URL trigger to listen for $_GET['d'] to trigger
 debugging information:
 
-    [[!Query? &_object=`modManagerLog` &_limit=`10` &action:STARTS_WITH=`namespace` &_debug=`d:get=0`]]  
+    [[!Query? &_classname=`modManagerLog` &_limit=`10` &action:STARTS_WITH=`namespace` &_debug=`d:get=0`]]  
 
 Return JSON data so query can be used to supply an Ajax form:
 
-    [[!Query? &_object=`modChunk` &_limit=`10` &_view=`json`]]  
+    [[!Query? &_classname=`modChunk` &_limit=`10` &_view=`json`]]  
 
 
 Quickly set up a search form by listening for post-data, and join on related tables:
@@ -34,12 +34,12 @@ Quickly set up a search form by listening for post-data, and join on related tab
         <input type="submit" value="Search" />
     </form>
     
-    [[!Query? &_object=`modUser` &_graph=`{"Profile":{}}` &_select=`id,username,Profile.email` &username:LIKE=`username:post`]] 
+    [[!Query? &_classname=`modUser` &_graph=`{"Profile":{}}` &_select=`id,username,Profile.email` &username:LIKE=`username:post`]] 
 
 
 Get a specific list of Chunks:
 
-    [[!Query? &_object=`modChunk` &name:IN=`header,footer,meta`]] 
+    [[!Query? &_classname=`modChunk` &name:IN=`header,footer,meta`]] 
 
 
 Author: Everett Griffiths <everett@craftsmancoding.com>

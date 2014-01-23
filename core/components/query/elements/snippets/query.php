@@ -10,7 +10,7 @@
  * ------------------
  * All "control" parameters begin with an underscore. They affect the functionality or formatting of the output.
  *
- *  _object (string) classname of the object collection you are querying. Default: modResource
+ *  _classname (string) classname of the object collection you are querying. Default: modResource
  *  _pkg (string) colon-separated string defining the arguments for addPackage() -- 
  *      package_name, model_path, and optionally table_prefix  
  *      e.g. `tiles:[[++core_path]]components/tiles/model/:tiles_` or 
@@ -27,7 +27,8 @@
  *  _sql (string) used to issue a raw SQL query.
  *  _graph (string) triggers a getCollectionGraph.
  *  _select (string) controls which columns to select for a getCollection. Ignored when _graph is set. Default: *
- *  _config (string) sets a pagination formatting pallette.
+ *  _config (string) sets a pagination formatting pallette, e.g. "default". 
+ *      Corresponding file must exist inside the config directory, e.g. "default.config.php"
  *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
  *  _debug (integer) triggers debugging information to be set.
  *
@@ -192,7 +193,7 @@ foreach ($scriptProperties as $k => $v) {
 }
 
 // Read the control arguments
-$object = $modx->getOption('_object', $control_params,'modResource');
+$classname = $modx->getOption('_classname', $control_params,'modResource');
 $pkg = $modx->getOption('_pkg', $control_params);
 $tpl = $modx->getOption('_tpl', $control_params);
 $tplOuter = $modx->getOption('_tplOuter', $control_params);
@@ -237,23 +238,23 @@ else {
         $cols = array_map('trim', $cols);
     }
 
-    $criteria = $modx->newQuery($object);
+    $criteria = $modx->newQuery($classname);
     // Graphing potentially needs *all* fields to function, so forcefully restricting it via "select" it is not rec'd
     if (!$graph) {
         $criteria->select($select);
     }
     $criteria->where($filters);
-    $total_pages = $modx->getCount($object,$criteria);
+    $total_pages = $modx->getCount($classname,$criteria);
     $criteria->limit($limit, $offset); 
     if ($sortby) {
         $criteria->sortby($sortby,$sortdir);
     }
 
     if ($graph) {
-        $results = $modx->getCollectionGraph($object,$graph,$criteria);
+        $results = $modx->getCollectionGraph($classname,$graph,$criteria);
     }
     else {
-        $results = $modx->getCollection($object,$criteria);
+        $results = $modx->getCollection($classname,$criteria);
     }
     // TODO: More info displayed here
     if ($debug) {
@@ -305,12 +306,12 @@ $out = '';
 
 // Pagination
 if ($total_pages > $limit) {
-    require_once $core_path.'components/query/lib/pagination.class.php';
+    require_once $core_path.'components/query/model/query/pagination.class.php';
     $P = new Pagination();
     $P->set_base_url($modx->makeUrl($modx->resource->get('id'),'','','abs'));
     $P->set_offset($offset); 
     $P->set_results_per_page($limit);
-    $tpls = require $core_path.'components/query/lib/'.$config.'.config.php';
+    $tpls = require $core_path.'components/query/config/'.$config.'.config.php';
     $P->set_tpls($tpls);
     $pagination_links = $P->paginate($total_pages);
 }
