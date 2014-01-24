@@ -228,8 +228,20 @@ if ($pkg) {
 $data = array();
 $total_pages = 0;
 if ($sql) {
+    // include SQL_CALC_FOUND_ROWS in your query
+    if ($limit) {
+        $sql .= ' LIMIT '.$limit;
+        if ($offset) {
+            $sql .= ' OFFSET '.$offset;    
+        }
+    }
+
     $result = $modx->query($sql);
     $data = $result->fetchAll(PDO::FETCH_ASSOC);
+
+    $result2 = $modx->query('SELECT FOUND_ROWS() as total_pages');
+    $data2 = $result2->fetch(PDO::FETCH_ASSOC);
+    $total_pages = $data2['total_pages'];
 }
 else {    
     $cols = array();
