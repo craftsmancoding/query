@@ -51,7 +51,7 @@ Repoman utilities.  This makes it much easier to manage your repositories.
 
 
 Author: Everett Griffiths <everett@craftsmancoding.com>
-Copyright 2013
+Copyright 2014
 
 Official Documentation: https://github.com/craftsmancoding/query/wiki
 

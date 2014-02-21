@@ -93,7 +93,7 @@
 //return '<textarea rows="40" cols="80">'.$graph = $modx->getGraph('modUser').'</textarea>';
 // return print_r($modx->classMap,true);
 
-$core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH);
+$core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
 
 // Restricted properties (cannot use the get: and post: convenience methods)
 
@@ -318,19 +318,19 @@ $out = '';
 
 // Pagination
 if ($total_pages > $limit) {
-    require_once $core_path.'components/query/model/query/pagination.class.php';
+    require_once $core_path.'model/query/pagination.class.php';
     $P = new Pagination();
     $P->set_base_url($modx->makeUrl($modx->resource->get('id'),'','','abs'));
     $P->set_offset($offset); 
     $P->set_results_per_page($limit);
-    $tpls = require $core_path.'components/query/config/'.$config.'.config.php';
+    $tpls = require $core_path.'config/'.$config.'.config.php';
     $P->set_tpls($tpls);
     $pagination_links = $P->paginate($total_pages);
 }
 
 // Default formatting
 if (!$tpl && !$tplOuter) {
-    $view_file = $core_path.'components/query/views/'.basename($view,'.php').'.php';    
+    $view_file = $core_path.'views/'.basename($view,'.php').'.php';    
     if (!file_exists($view_file)) {
         $view_file = $view;
         if (!file_exists($view_file)) {
