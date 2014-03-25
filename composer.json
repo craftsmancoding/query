@@ -29,7 +29,7 @@
         "package_name": "Query",
         "namespace": "query",
         "version": "1.0.0",
-        "release": "rc",
+        "release": "pl",
         "category":"Query"
     }
 }
