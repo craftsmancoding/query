@@ -328,7 +328,7 @@ if ($total_pages > $limit) {
     $pagination_links = $P->paginate($total_pages);
 }
 
-// Default formatting
+// Default formatting (via a PHP view)
 if (!$tpl && !$tplOuter) {
     $view_file = $core_path.'views/'.basename($view,'.php').'.php';    
     if (!file_exists($view_file)) {
@@ -344,12 +344,48 @@ if (!$tpl && !$tplOuter) {
     ob_end_clean();
 }
 elseif($tpl) {
-    foreach($data as $d) {
-        $out .= $modx->getChunk($tpl,$d);
+
+    $use_tmp_chunk = false;
+    if (!$innerChunk = $modx->getObject('modChunk', array('name' => $tpl))) {
+        $use_tmp_chunk = true; // No chunk was passed... a formatting string was passed instead.
     }
+    
+    foreach ($data as $r) {
+        if (is_object($r)) $r = $r->toArray('',false,false,true); // Handle xPDO objects
+        // Use a temporary Chunk when dealing with raw formatting strings
+        if ($use_tmp_chunk) {
+            $uniqid = uniqid();
+            $innerChunk = $modx->newObject('modChunk', array('name' => "{tmp-inner}-{$uniqid}"));
+            $innerChunk->setCacheable(false);    
+            $out .= $innerChunk->process($r, $tpl);
+        }
+        // Use getChunk when a chunk name was passed
+        else {
+            $out .= $modx->getChunk($tpl, $r);
+        }
+    }
+
+// Old version
+//    foreach($data as $d) {
+//        $out .= $modx->getChunk($tpl,$d);
+//    }
+
 }
 if ($tplOuter) {
-    $out = $modx->getChunk($tplOuter, array('content'=>$out));
+    $props = array('content'=>$out);
+    // Formatting String
+    if (!$outerChunk = $modx->getObject('modChunk', array('name' => $tplOuter))) {  
+        $uniqid = uniqid();
+        $outerChunk = $modx->newObject('modChunk', array('name' => "{tmp-outer}-{$uniqid}"));
+        $outerChunk->setCacheable(false);    
+        $out = $outerChunk->process($props, $tplOuter);        
+    }
+    // Chunk Name
+    else {
+        $out = $modx->getChunk($tplOuter, $props);
+    }
+
+//    $out = $modx->getChunk($tplOuter, array('content'=>$out));
 }
 
 // Set placeholders
