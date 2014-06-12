@@ -3,6 +3,15 @@
  * @name Query
  * @description A generic utility/interface used for querying any MODX database collection.
  *
+ * USAGE
+ *
+ *  [[Query? &_classname=`modResource` &template=`3`]]
+ *
+ * No Results - rely on MODX output filters.
+ *
+ *  [[Query:empty=`No results found`? &_classname=`modUser` &_tpl=`SingleUser`]]
+ *
+ *
  * Copyright 2013 by Everett Griffiths <everett@craftsmancoding.com>
  * Created on 05-12-2013
  * 
@@ -75,7 +84,7 @@
  *  $input : the value sent to the snippet.  E.g. in &_sortby=`xyz:get`, the $input is "xyz"
  *  $options : any extra option. E.g. &_sortby=`xyz:get=123`, the $options is "123". These may be quoted any way you prefer.
  *
- * WARNING: use these with extreme caution! Query does not perform any data sanitization, so these
+ * WARNING: use value modifiers with extreme caution! Query does not perform any data sanitization, so these
  * could be exploited via SQL injection if you exposed a value that should not be exposed (like &_sql).
  * 
  * 
@@ -89,10 +98,7 @@
  $graph = $xpdo->getGraph('Classname', 1)
  print_r($modx->classMap) -- lets you trace out all avail. objects
  * @package query
- **/
-//return '<textarea rows="40" cols="80">'.$graph = $modx->getGraph('modUser').'</textarea>';
-// return print_r($modx->classMap,true);
-
+ */
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
 
 // Restricted properties (cannot use the get: and post: convenience methods)
