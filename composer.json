@@ -20,11 +20,18 @@
         "source": "https://github.com/craftsmancoding/query.git"
     },    
     "require": {
-        "php": ">=5.3"
+        "php": ">=5.3",
+        "craftsmancoding/repoman": "dev-composer-plugin"
     },
     "autoload": {
         "classmap":["model/query/"]
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url":  "/Users/everett2/Sites/revo8/html/assets/repos/repoman"
+        }
+    ],
     "extra": {
         "package_name": "Query",
         "namespace": "query",
