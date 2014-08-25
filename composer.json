@@ -1,7 +1,7 @@
 {
     "name": "craftsmancoding/query",
     "description": "Query provides a Snippet interface for xPDO's getCollection method so you can query any table and format the output, including pagination.  It can be used as a replacement for getResources, but it offers much more flexibility because it's not constrained to fetching only resources.",
-    "type": "library",
+    "type": "modx-package",
     "keywords": ["modx","query","mysql","getresources","wayfinder"],
     "homepage": "https://github.com/craftsmancoding/query",
     "license": "GPL-2.0+",
