@@ -40,6 +40,10 @@ Get a specific list of Chunks:
 
     [[!Query? &_classname=`modChunk` &name:IN=`header,footer,meta`]] 
 
+Return Paginated Results:
+
+Include the "pagination_links" placeholder in your page or `_tplOuter` Chunk.
+
 
 ## Installation
 

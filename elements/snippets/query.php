@@ -321,6 +321,7 @@ if (empty($data)) {
 }
 
 $out = '';
+$pagination_links = '';
 
 // Pagination
 if ($total_pages > $limit) {
@@ -370,13 +371,8 @@ elseif($tpl) {
             $out .= $modx->getChunk($tpl, $r);
         }
     }
-
-// Old version
-//    foreach($data as $d) {
-//        $out .= $modx->getChunk($tpl,$d);
-//    }
-
 }
+
 if ($tplOuter) {
     $props = array('content'=>$out);
     // Formatting String
@@ -390,14 +386,12 @@ if ($tplOuter) {
     else {
         $out = $modx->getChunk($tplOuter, $props);
     }
-
-//    $out = $modx->getChunk($tplOuter, array('content'=>$out));
 }
 
 // Set placeholders
 $modx->setPlaceholder('page_count',$total_pages);
 $modx->setPlaceholder('results',$out);
-
+$modx->setPlaceholder('pagination_links',$pagination_links);
 $modx->setLogLevel($old_log_level);
 
 return $out;
