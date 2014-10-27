@@ -8,25 +8,27 @@ constrained to fetching only resources.
 
 ## Examples
 
-Fetch pages matching a certain template:
+**Fetch pages matching a certain template:**
 
     [[!Query? &template=`3`]]
 
-Find users whose usernames begin with "B" and format the results using a chunk:
+**Find users whose usernames begin with "B" and format the results using a chunk:**
 
     [[!Query? &_classname=`modUser` &username:STARTS_WITH=`b` &_tpl=`myUser` &_tplOuter=`allUsers`]]
     
-Paginate all manager events whose names begin with "namespace" and set a URL trigger to listen for $_GET['d'] to trigger
-debugging information:
+**Paginate all manager events whose names begin with "namespace" and set a URL trigger to listen for $_GET['d'] to trigger
+debugging information:**
 
     [[!Query? &_classname=`modManagerLog` &_limit=`10` &action:STARTS_WITH=`namespace` &_debug=`d:get=0`]]  
 
-Return JSON data so query can be used to supply an Ajax form:
+**Return JSON data so query can be used to supply an Ajax form:**
 
     [[!Query? &_classname=`modChunk` &_limit=`10` &_view=`json`]]  
 
 
-Quickly set up a search form by listening for post-data, and join on related tables:
+**Quickly set up a search form:** 
+
+Listen for post-data, and join on related tables using the "&_graph" parameter.
 
     <form action="" method="post">
         Username: <input type="text" name="username" value="[[+query.username]]" /><br /> 
@@ -36,13 +38,24 @@ Quickly set up a search form by listening for post-data, and join on related tab
     [[!Query? &_classname=`modUser` &_graph=`{"Profile":{}}` &_select=`id,username,Profile.email` &username:LIKE=`username:post`]] 
 
 
-Get a specific list of Chunks:
+**Get a specific list of Chunks:**
 
     [[!Query? &_classname=`modChunk` &name:IN=`header,footer,meta`]] 
 
-Return Paginated Results:
+**Return Paginated Results:**
 
-Include the "pagination_links" placeholder in your page or `_tplOuter` Chunk.
+It's critical here that you establish a listener for the offset value that's passed in the URL.  Do this using the 
+"input filter" for the "$_offset" parameter.  Also make sure you include the `[[+pagination_links]]` in your "&_tplOuter" 
+or in your page somewhere.
+
+    [[!Query? 
+    &_limit=10 
+    &_style=`digg` 
+    &_tpl=`<li><a href="[[~[[+id]]]]">[[+pagetitle]]</a></li>` 
+    &_tplOuter=`<ul>[[+content]]</ul>[[+pagination_links ]]` 
+    &_offset=`offset:get`]]
+
+> Make sure you include the "pagination_links" placeholder in your page or `_tplOuter` Chunk!
 
 
 ## Installation

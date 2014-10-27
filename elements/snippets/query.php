@@ -12,7 +12,7 @@
  *  [[Query:empty=`No results found`? &_classname=`modUser` &_tpl=`SingleUser`]]
  *
  *
- * Copyright 2013 by Everett Griffiths <everett@craftsmancoding.com>
+ * Copyright 2014 by Everett Griffiths <everett@craftsmancoding.com>
  * Created on 05-12-2013
  * 
  * Control Parameters
@@ -24,8 +24,8 @@
  *      package_name, model_path, and optionally table_prefix  
  *      e.g. `tiles:[[++core_path]]components/tiles/model/:tiles_` or 
  *      If only the package name is supplied, the path is assumed to be "[[++core_path]]components/$package_name/model/"
- *  _tpl (string) chunk to format each record in the collection
- *  _tplOuter (string) chunk to wrap the result set. Requires the [[+content]] placeholder.
+ *  _tpl (string) chunk or formatting-string to format each record in the collection
+ *  _tplOuter (string) chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
  *  _view (string) oldschool php file to format the output, see the views folder.  
  *      Some samples are provided, e.g. 'table', 'json'. If _tpl
  *      and _tplOuter are provided, the _view parameter is ignored.  Default: table.php
@@ -34,6 +34,7 @@
  *  _sortby (string) column to sort by
  *  _sortdir (string) sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
  *  _sql (string) used to issue a raw SQL query.
+ *  _style (string) one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
  *  _graph (string) triggers a getCollectionGraph.
  *  _select (string) controls which columns to select for a getCollection. Ignored when _graph is set. Default: *
  *  _config (string) sets a pagination formatting pallette, e.g. "default". 
@@ -43,7 +44,7 @@
  *
  * Filter Paramters
  * ----------------
- * All other parameters act as filters and they depend on the collection being queried. 
+ * All other parameters act as query filters and they depend on the collection being queried.
  * Any parameter that does not begin with an underscore is considered a filter parameter.
  *
  *
@@ -80,9 +81,11 @@
  *  post : causes the named value to read from the $_POST array. $options = default value. 
  *  decode : runs json_decode on the input. Useful if you need to pass an array as an argument.
  *
- * You can also supply your own Snippet names to be used as value modifiers. They should accept the following inputs:
- *  $input : the value sent to the snippet.  E.g. in &_sortby=`xyz:get`, the $input is "xyz"
- *  $options : any extra option. E.g. &_sortby=`xyz:get=123`, the $options is "123". These may be quoted any way you prefer.
+ * You can also supply your own Snippet names to be used as value modifiers instead of relying on the included get, post
+ * and decode. Your custom value modifiers should accept the following inputs
+ *  $input : the value sent to the snippet.  E.g. in &_sortby=`xyz:customvaluemodifier`, the $input is "xyz"
+ *  $options : any extra option. E.g. &_sortby=`xyz:customvaluemodifier=123`, the $options is "123". These may be quoted a
+ *      ny way you prefer.
  *
  * WARNING: use value modifiers with extreme caution! Query does not perform any data sanitization, so these
  * could be exploited via SQL injection if you exposed a value that should not be exposed (like &_sql).
@@ -94,19 +97,19 @@
  * @var $modx modX
  * @var $scriptProperties array
  *
- $modx->getAggregates() and getComposites() or you can access the $obj->_aggregates and $obj->_composites directly
- $graph = $xpdo->getGraph('Classname', 1)
- print_r($modx->classMap) -- lets you trace out all avail. objects
+ * $modx->getAggregates() and getComposites() or you can access the $obj->_aggregates and $obj->_composites directly
+ * $graph = $xpdo->getGraph('Classname', 1)
+ * print_r($modx->classMap) -- lets you trace out all avail. objects
  * @package query
  */
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
-
-// Restricted properties (cannot use the get: and post: convenience methods)
-
+require_once $core_path .'vendor/autoload.php';
+// TODO: Restricted properties (cannot use the get: and post: convenience methods)
 // Process the raw $scriptProperties into filters and control_params.
-// We need to translate stuff here due to limitations in the Snippet Syntax.
+// FYI: We need to translate some stuff here (e.g. '<=' becomes 'LTE') due to limitations in the Snippet Syntax.
 // See http://rtfm.modx.com/xpdo/2.x/class-reference/xpdoquery/xpdoquery.where
-$control_params = array(); $scriptProperties; // not a reference!
+$control_params = array();
+//$scriptProperties; // not a reference!
 $filters = array();
 foreach ($scriptProperties as $k => $v) {
 
@@ -210,6 +213,7 @@ $sortdir = $modx->getOption('_sortdir', $control_params,'ASC');
 $page = (int) $modx->getOption('_page', $control_params);
 $offset = (int) $modx->getOption('_offset', $control_params);
 $sql = $modx->getOption('_sql', $control_params);
+$style = $modx->getOption('_style', $control_params, 'default');
 $graph = $modx->getOption('_graph', $control_params);
 $select = $modx->getOption('_select', $control_params,'*');
 $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOption('log_level'));
@@ -218,6 +222,7 @@ $debug = (int) $modx->getOption('_debug', $control_params);
 
 $old_log_level = $modx->setLogLevel($log_level);
 
+// Load up any custom packages
 if ($pkg) {
     $parts = explode(':',$pkg);
     if (isset($parts[2])) {
@@ -233,6 +238,7 @@ if ($pkg) {
 
 $data = array();
 $total_pages = 0;
+// Run raw sql?
 if ($sql) {
     // include SQL_CALC_FOUND_ROWS in your query
     if ($limit) {
@@ -277,7 +283,7 @@ else {
     // TODO: More info displayed here
     if ($debug) {
         $criteria->prepare();
-        return '<div><h3>Raw SQL</h3><textarea rows="10" cols="60">'.$criteria->toSQL().'</textarea>
+        return '<div><h2><code>Query</code> Snippet Debug</h2><h3>Raw SQL</h3><textarea rows="10" cols="60">'.$criteria->toSQL().'</textarea>
             <h3>POST</h3>
             <textarea rows="10" cols="60">'.print_r($_POST,true).'</textarea>
             <h3>Control Parameters</h3>
@@ -325,14 +331,19 @@ $pagination_links = '';
 
 // Pagination
 if ($total_pages > $limit) {
-    require_once $core_path.'model/query/pagination.class.php';
-    $P = new Pagination();
-    $P->set_base_url($modx->makeUrl($modx->resource->get('id'),'','','abs'));
-    $P->set_offset($offset); 
-    $P->set_results_per_page($limit);
-    $tpls = require $core_path.'config/'.$config.'.config.php';
-    $P->set_tpls($tpls);
-    $pagination_links = $P->paginate($total_pages);
+    
+    Pagination\Pager::style($style);
+    $pagination_links = Pagination\Pager::links($total_pages, $offset, $limit)
+        ->setBaseUrl($modx->makeUrl($modx->resource->get('id'),'','','abs'));
+
+    
+//    $P = new Pagination();
+//    $P->set_base_url($modx->makeUrl($modx->resource->get('id'),'','','abs'));
+//    $P->set_offset($offset);
+//    $P->set_results_per_page($limit);
+//    $tpls = require $core_path.'config/'.$config.'.config.php';
+//    $P->set_tpls($tpls);
+//    $pagination_links = $P->paginate($total_pages);
 }
 
 // Default formatting (via a PHP view)
