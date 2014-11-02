@@ -332,18 +332,10 @@ $pagination_links = '';
 // Pagination
 if ($total_pages > $limit) {
     
-    Pagination\Pager::style($style);
+    //Pagination\Pager::style($style);
     $pagination_links = Pagination\Pager::links($total_pages, $offset, $limit)
-        ->setBaseUrl($modx->makeUrl($modx->resource->get('id'),'','','abs'));
-
-    
-//    $P = new Pagination();
-//    $P->set_base_url($modx->makeUrl($modx->resource->get('id'),'','','abs'));
-//    $P->set_offset($offset);
-//    $P->set_results_per_page($limit);
-//    $tpls = require $core_path.'config/'.$config.'.config.php';
-//    $P->set_tpls($tpls);
-//    $pagination_links = $P->paginate($total_pages);
+        ->setBaseUrl($modx->makeUrl($modx->resource->get('id'),'','','abs'))
+        ->style($style);
 }
 
 // Default formatting (via a PHP view)
