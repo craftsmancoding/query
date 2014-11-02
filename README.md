@@ -6,6 +6,9 @@ Query offers a Snippet-interface for xPDO's getCollection method.  This allows y
 as a replacement for getResources: it offers more flexibility because it's not 
 constrained to fetching only resources.
 
+<a href="https://www.youtube.com/watch?v=RaUHvJDTkYQ&feature=youtu.be" target="_blank"><img src="http://img.youtube.com/vi/RaUHvJDTkYQ/0.jpg" 
+alt="Query Overview" width="480" height="360" border="10" /></a>
+
 ## Examples
 
 **Fetch pages matching a certain template:**
@@ -79,12 +82,20 @@ or in your page somewhere.
     [[!Query? 
         &_limit=10 
         &_style=`digg` 
-        &_tpl=`<li><a href="[[~[[+id]]]]">[[+pagetitle]]</a></li>` 
+        &_tpl=`myTpl` 
         &_tplOuter=`<ul>[[+content]]</ul>[[+pagination_links ]]` 
         &_offset=`offset:get`
     ]]
 
+Where `myTpl` contains the following:
+
+    <li><a href="[[~[[+id]]]]">[[+pagetitle]]</a></li>
+
+WARNING: Nested tags do not seem to parse well as formatting strings, so use Chunks whenever you can. 
+
 > Make sure you include the "pagination_links" placeholder in your page or `_tplOuter` Chunk!
+
+
 
 
 ## Installation
