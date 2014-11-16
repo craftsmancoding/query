@@ -28,8 +28,8 @@
     "extra": {
         "package_name": "Query",
         "namespace": "query",
-        "version": "1.1.1",
-        "release": "dev",
+        "version": "1.2.0",
+        "release": "pl",
         "category":"Query"
     }
 }
