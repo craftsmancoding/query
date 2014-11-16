@@ -3,3 +3,14 @@ Changelog for Query
 Query 1.0.0
 ---------------------------------
 Initial Version
+
+1.1.0
+---------------------------------
+Going public
+
+1.2.0
+--------------------------------
+- Better support for raw SQL queries: &_debug option now supported for &_sql mode.
+- Cleanup of composer.json (whoops)
+- Fixed bug in setting default values for input value modifiers
+- Improved pagination logic

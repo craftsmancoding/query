@@ -24,13 +24,12 @@
         "craftsmancoding/pagination": "dev-master"
     },
     "autoload": {
-        "classmap":["model/query/"]
     },
     "extra": {
         "package_name": "Query",
         "namespace": "query",
-        "version": "1.1.0",
-        "release": "pl",
+        "version": "1.1.1",
+        "release": "dev",
         "category":"Query"
     }
 }

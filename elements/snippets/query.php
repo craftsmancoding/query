@@ -75,7 +75,7 @@
  *
  *      [[!Query? &_sortby=`sortby:get`]]
  *
- * There are 2 value modifiers included:
+ * There are 3 value modifiers included:
  *
  *  get : causes the named value to read from the $_GET array.  $options = default value.
  *  post : causes the named value to read from the $_POST array. $options = default value. 
@@ -84,8 +84,7 @@
  * You can also supply your own Snippet names to be used as value modifiers instead of relying on the included get, post
  * and decode. Your custom value modifiers should accept the following inputs
  *  $input : the value sent to the snippet.  E.g. in &_sortby=`xyz:customvaluemodifier`, the $input is "xyz"
- *  $options : any extra option. E.g. &_sortby=`xyz:customvaluemodifier=123`, the $options is "123". These may be quoted a
- *      ny way you prefer.
+ *  $options : any extra option. E.g. &_sortby=`xyz:customvaluemodifier=123`, the $options is "123". These may be quoted any way you prefer.
  *
  * WARNING: use value modifiers with extreme caution! Query does not perform any data sanitization, so these
  * could be exploited via SQL injection if you exposed a value that should not be exposed (like &_sql).
@@ -111,23 +110,29 @@ require_once $core_path .'vendor/autoload.php';
 $control_params = array();
 //$scriptProperties; // not a reference!
 $filters = array();
+// We track which placeholders we set
+$placeholder_keys = array();
+$page_count = 1; // default is one page
+
 foreach ($scriptProperties as $k => $v) {
 
     // Dynamically modify values via our "input filters"
     $filter = null;
     $raw_k = $k;
+    // $v might be something like `year:get=2012`
     preg_match("/^(.*):((\w+)(=['`\"]?([^'`\"]*)['`\"]?)?)$/i", $v, $matches);
     if ($matches) {
         $filter = (isset($matches[3]))? $matches[3] : '';
-        $x = (isset($matches[1]))? $matches[1] : ''; // whatever's to the left of the filter
-        $y = (isset($matches[4]))? $matches[4] : ''; // any option, e.g. :get="my-default"
-        $raw_k = $x;
+        $x = (isset($matches[1]))? $matches[1] : ''; // whatever's to the left of the filter, e.g. 'year'
+        $y = (isset($matches[4]))? $matches[4] : ''; // any option, e.g. ="2012"
+
+        // Input Modifiers
+        // Don't use getOption here because it will read db config data if there is no $_POST data!
         if (strtolower($filter) == 'get') {
-            $v = (isset($_GET[$x]))? $_GET[$x]: $y;
+            $v = (isset($_GET[$x]))? $_GET[$x]: ltrim($y,'=');
         }
-        // Don't use getOption here because it will read db config data if there is no $_POST data
         elseif (strtolower($filter) == 'post') {
-            $v = (isset($_POST[$x]))? $_POST[$x]: $y;
+            $v = (isset($_POST[$x]))? $_POST[$x]: ltrim($y,'=');
         }
         elseif (strtolower($filter) == 'decode') {
             $v = json_decode($matches[1]);
@@ -143,9 +148,12 @@ foreach ($scriptProperties as $k => $v) {
         unset($scriptProperties[$k]);
         continue;
     }
+
+    // Placeholders are used for debugging, raw SQL, and ???
+    $placeholder_keys[] = 'query.'.$raw_k;
     $modx->toPlaceholder($raw_k,htmlspecialchars($v),'query');
-    
-    // Modify the keys (i.e. translate the syntax)
+
+    // Modify the keys (i.e. translate the syntax to xPDO)
     if (strtolower(substr($k,-2))==':e') {
         $k = substr($k,0,-2).':=';
     }
@@ -237,7 +245,7 @@ if ($pkg) {
 }
 
 $data = array();
-$total_pages = 0;
+$record_count = 0;
 // Run raw sql?
 if ($sql) {
     // include SQL_CALC_FOUND_ROWS in your query
@@ -247,13 +255,28 @@ if ($sql) {
             $sql .= ' OFFSET '.$offset;    
         }
     }
+    // Quote any placeholders in case they are used in the query
+    $ph = array();
+    foreach ($placeholder_keys as $k) {
+        $ph[$k] = $modx->quote($modx->getPlaceholder($k));
+        $sql = str_replace('[[+'.$k.']]', $ph[$k], $sql);
+    }
+    if ($debug) {
+        return '<div><h2><code>Query</code> Snippet Debug</h2><h3>Raw SQL</h3><textarea rows="10" cols="60">'.$sql.'</textarea>
+            <h3>Placeholders</h3>
+            <textarea rows="10" cols="60">'.print_r($ph,true).'</textarea>
+            <h3>POST</h3>
+            <textarea rows="10" cols="60">'.print_r($_POST,true).'</textarea>
+        </div>';
+    }
 
     $result = $modx->query($sql);
     $data = $result->fetchAll(PDO::FETCH_ASSOC);
 
     $result2 = $modx->query('SELECT FOUND_ROWS() as total_pages');
     $data2 = $result2->fetch(PDO::FETCH_ASSOC);
-    $total_pages = $data2['total_pages'];
+    //return '<pre>'.print_r($data2,true).'</pre>';
+    $record_count = $data2['total_pages'];
 }
 else {    
     $cols = array();
@@ -268,7 +291,7 @@ else {
         $criteria->select($select);
     }
     $criteria->where($filters);
-    $total_pages = $modx->getCount($classname,$criteria);
+    $record_count = $modx->getCount($classname,$criteria);
     $criteria->limit($limit, $offset); 
     if ($sortby) {
         $criteria->sortby($sortby,$sortdir);
@@ -312,7 +335,7 @@ else {
         }
         else {
             foreach ($keys['keys'] as $k) {
-                $clean_k = substr($k,4);
+                $clean_k = substr($k,4); // remove the tmp.
                 $this_row[$clean_k] = $modx->getPlaceholder($k); 
             }
         }
@@ -330,12 +353,13 @@ $out = '';
 $pagination_links = '';
 
 // Pagination
-if ($total_pages > $limit) {
+if ($limit && $record_count > $limit) {
     
     //Pagination\Pager::style($style);
-    $pagination_links = Pagination\Pager::links($total_pages, $offset, $limit)
+    $pagination_links = Pagination\Pager::links($record_count, $offset, $limit)
         ->setBaseUrl($modx->makeUrl($modx->resource->get('id'),'','','abs'))
         ->style($style);
+    $page_count = ceil(record_count / $limit);
 }
 
 // Default formatting (via a PHP view)
@@ -392,7 +416,7 @@ if ($tplOuter) {
 }
 
 // Set placeholders
-$modx->setPlaceholder('page_count',$total_pages);
+$modx->setPlaceholder('page_count',$page_count);
 $modx->setPlaceholder('results',$out);
 $modx->setPlaceholder('pagination_links',$pagination_links);
 $modx->setLogLevel($old_log_level);
