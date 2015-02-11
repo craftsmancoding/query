@@ -1,48 +1,61 @@
 <?php
 /**
- * @name Query
- * @description A generic utility/interface used for querying any MODX database collection.
+ * @name queryResources
+ * @description Like Query, but only for searching on modResource using TV optimizations. Filter arguments include modResource column names and any TV names.
+ *
+ * There are 3 types of queries that could be triggers:
+ *  1. Filters applied to modx_site_content columns
+ *  2. Filters applied to TV (i.e. virtual columns)
+ *  3. Filters applied to both built-in and TV columns
+ *
+ * The process goes like this:
+ *
+ * Use filters to get all matching page ids from modx_site_content.
+ * Iterate over each TV filter get all matching page ids from modx_site_tmplvar_contentvalues
+ * Find the intersect of the arrays of page ids
+ * Load data from modx_site_content (limiting by select columns where applicable)
+ * Load data from modx_site_tmplvar_contentvalues (limiting by select columns where applicable)
+ * Normalize the result set so that each row has the same keys in its array.
+ * Format and return the result.
  *
  * USAGE
  *
- *  [[Query? &_classname=`modResource` &template=`3`]]
+ *  E.g. search by TVs:
+ *  [[queryResources? &city=`city:get` &state=`state:get` &_view=`json`]]
+ *
+ *  Search by both TVs and regular columns (interface should be the same)
+ *  [[queryResources? &published=`1` &city=`city:get` &state=`state:get` &_view=`json`]]
  *
  * No Results - rely on MODX output filters.
  *
- *  [[Query:empty=`No results found`? &_classname=`modUser` &_tpl=`SingleUser`]]
+ *  [[queryResults:empty=`No results found`]]
  *
  *
- * Copyright 2014 by Everett Griffiths <everett@craftsmancoding.com>
- * Created on 05-12-2013
- * 
+ * Copyright 2015 by Everett Griffiths <everett@craftsmancoding.com>
+
+ *
  * Control Parameters
  * ------------------
  * All "control" parameters begin with an underscore. They affect the functionality or formatting of the output.
  *
- *  _classname (string) classname of the object collection you are querying. Default: modResource
- *  _pkg (string) colon-separated string defining the arguments for addPackage() -- 
- *      package_name, model_path, and optionally table_prefix  
- *      e.g. `tiles:[[++core_path]]components/tiles/model/:tiles_` or 
- *      If only the package name is supplied, the path is assumed to be "[[++core_path]]components/$package_name/model/"
+
  *  _tpl (string) chunk or formatting-string to format each record in the collection
  *  _tplOuter (string) chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
- *  _view (string) oldschool php file to format the output, see the views folder.  
+ *  _view (string) oldschool php file to format the output, see the views folder.
  *      Some samples are provided, e.g. 'table', 'json'. If _tpl
  *      and _tplOuter are provided, the _view parameter is ignored.  Default: table.php
- *  _limit (integer) limits the number of results returned, also sets the results shown per page. 
+ *  _limit (integer) limits the number of results returned, also sets the results shown per page.
  *  _offset (integer) offsets the first record returned, e.g. for pagination.
  *  _sortby (string) column to sort by
  *  _sortdir (string) sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
- *  _sql (string) used to issue a raw SQL query.
  *  _style (string) one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
- *  _graph (string) triggers a getCollectionGraph.
- *  _select (string) controls which columns to select for a getCollection. Ignored when _graph is set. Default: *
- *  _config (string) sets a pagination formatting pallette, e.g. "default". 
+ *  _select (string) controls which columns to select for a getCollection. Default: *
+ *  _config (string) sets a pagination formatting pallette, e.g. "default".
  *      Corresponding file must exist inside the config directory, e.g. "default.config.php"
  *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
  *  _debug (integer) triggers debugging information to be set.
  *
- * Filter Paramters
+ * Filter Parameters
  * ----------------
  * All other parameters act as query filters and they depend on the collection being queried.
  * Any parameter that does not begin with an underscore is considered a filter parameter.
@@ -62,15 +75,15 @@
  *  NOT_IN     NOT IN
  *  IN         IN
  *  STARTS_WITH behaves like "LIKE", but quotes the value as 'value%'
- *  ENDS_WITH behaves like "LIKE", but quotes the value as '%value' 
+ *  ENDS_WITH behaves like "LIKE", but quotes the value as '%value'
  *
- * 
+ *
  * Value Modifiers
  * ---------------
- * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query Snippet supports 
- * dynamic inputs via its own "value modifiers" that mimic the syntax used by MODX for its output 
- * filters (aka "output modifiers).  This is useful for building search forms or enabling pagination.  
- * For example, you can change the &_sortby argument dynamically by setting a URL parameter, then you 
+ * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query Snippet supports
+ * dynamic inputs via its own "value modifiers" that mimic the syntax used by MODX for its output
+ * filters (aka "output modifiers).  This is useful for building search forms or enabling pagination.
+ * For example, you can change the &_sortby argument dynamically by setting a URL parameter, then you
  * can adjust your Query snippet call to read the "sortby" $_GET variable:
  *
  *      [[!Query? &_sortby=`sortby:get`]]
@@ -78,7 +91,7 @@
  * There are 3 value modifiers included:
  *
  *  get : causes the named value to read from the $_GET array.  $options = default value.
- *  post : causes the named value to read from the $_POST array. $options = default value. 
+ *  post : causes the named value to read from the $_POST array. $options = default value.
  *  decode : runs json_decode on the input. Useful if you need to pass an array as an argument.
  *
  * You can also supply your own Snippet names to be used as value modifiers instead of relying on the included get, post
@@ -88,8 +101,8 @@
  *
  * WARNING: use value modifiers with extreme caution! Query does not perform any data sanitization, so these
  * could be exploited via SQL injection if you exposed a value that should not be exposed (like &_sql).
- * 
- * 
+ *
+ *
  *
  * Variables
  * ---------
@@ -101,8 +114,24 @@
  * print_r($modx->classMap) -- lets you trace out all avail. objects
  * @package query
  */
+
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
 require_once $core_path .'vendor/autoload.php';
+
+// CACHE THIS
+$query = $modx->newQuery('modTemplateVar');
+$query->select(array('id','name'));
+$tvs = $modx->getCollection('modTemplateVar', $query);
+$tvlookup_by_name = array();
+$tvlookup_by_id = array();
+foreach ($tvs as $t)
+{
+    $tvlookup_by_name[$t->get('name')] = $t->get('id');
+    $tvlookup_by_id[$t->get('id')] = $t->get('name');
+}
+$page_cols = array_keys($modx->getFields('modResource'));
+//return print_r($tvlookup_by_name,true);
+
 // TODO: Restricted properties (cannot use the get: and post: convenience methods)
 // Process the raw $scriptProperties into filters and control_params.
 // FYI: We need to translate some stuff here (e.g. '<=' becomes 'LTE') due to limitations in the Snippet Syntax.
@@ -110,6 +139,7 @@ require_once $core_path .'vendor/autoload.php';
 $control_params = array();
 //$scriptProperties; // not a reference!
 $filters = array();
+$tvfilters = array();
 // We track which placeholders we set
 $placeholder_keys = array();
 $page_count = 1; // default is one page
@@ -196,33 +226,67 @@ foreach ($scriptProperties as $k => $v) {
         $k = substr($k,0,-10).':LIKE';
         $v = '%'.trim($v,'%');
     }
-    
+
     if (strtolower($v) == 'null') {
         $v = null;
     }
-    
+
     // Manually set an operator
     if (isset($scriptProperties['_op_'.$k])) {
         $k = $k.':'.ltrim($scriptProperties['_op_'.$k],':');
     }
     unset($scriptProperties['_op_'.$k]);
-    $filters[$k] = $v;
+
+    // Does the column belong to the site_content table? Or does it represent a TV?
+    if (strpos($k, ':') !== false)
+    {
+        $tmp = explode(':', $k);
+        if (count($tmp) == 2)
+        {
+            $column_name = $tmp[0];
+        }
+        else
+        {
+            $column_name = $tmp[1];
+        }
+    }
+    else
+    {
+        $column_name = $k;
+    }
+
+    if (in_array($column_name, $page_cols))
+    {
+        $filters[$k] = $v;
+    }
+    else
+    {
+        $k = str_replace($column_name,'value',$k);
+        $tvfilters[] = array(
+            'tvname' => $column_name,
+            'filter' => $k,
+            'value' => $v
+        );
+    }
 }
 
+
+
+//return '<pre>'.print_r($array,true).'</pre>';
+//return '<pre>'.print_r($filters,true).'</pre>';
+//return '<pre>'.print_r($tvfilters,true).'</pre>';
+
 // Read the control arguments
-$classname = $modx->getOption('_classname', $control_params,'modResource');
-$pkg = $modx->getOption('_pkg', $control_params);
 $tpl = $modx->getOption('_tpl', $control_params);
 $tplOuter = $modx->getOption('_tplOuter', $control_params);
 $view = $modx->getOption('_view', $control_params,'table');
 $limit = (int) $modx->getOption('_limit', $control_params);
 $sortby = $modx->getOption('_sortby', $control_params);
-$sortdir = $modx->getOption('_sortdir', $control_params,'ASC'); 
+$sortdir = $modx->getOption('_sortdir', $control_params,'ASC');
 $page = (int) $modx->getOption('_page', $control_params);
 $offset = (int) $modx->getOption('_offset', $control_params);
 $sql = $modx->getOption('_sql', $control_params);
 $style = $modx->getOption('_style', $control_params, 'default');
-$graph = $modx->getOption('_graph', $control_params);
 $select = $modx->getOption('_select', $control_params,'*');
 $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOption('log_level'));
 $config = basename($modx->getOption('_config', $control_params,'default'),'.config.php');
@@ -230,125 +294,148 @@ $debug = (int) $modx->getOption('_debug', $control_params);
 
 $old_log_level = $modx->setLogLevel($log_level);
 
-// Load up any custom packages
-if ($pkg) {
-    $parts = explode(':',$pkg);
-    if (isset($parts[2])) {
-        $modx->addPackage($parts[0],$parts[1],$parts[2]);     
-    }
-    elseif(isset($parts[1])) {
-        $modx->addPackage($parts[0],$parts[1]);
-    }
-    else {
-        $modx->addPackage($parts[0],MODX_CORE_PATH.'components/'.$parts[0].'/model/');
+// Get page ids from primary query (if filters are present)
+$intersects = array();
+if ($filters)
+{
+    $criteria = $modx->newQuery('modResource');
+    $criteria->select('id');
+    $criteria->where($filters);
+
+    if ($results = $modx->getIterator('modResource',$criteria))
+    {
+        $this_set = array();
+        foreach ($results as $r)
+        {
+            $this_set[] = $r->get('id');
+        }
+        $intersects[] = $this_set;
     }
 }
+
+if ($tvfilters)
+{
+    foreach($tvfilters as $tf)
+    {
+        //return '<pre>'.print_r($tf,true);
+        $criteria = $modx->newQuery('modTemplateVarResource');
+        $criteria->select('contentid');
+        $this_filter = array(
+            'tmplvarid' => $tvlookup_by_name[$tf['tvname']],
+            $tf['filter'] => $tf['value']
+        );
+        //return '<pre>'.print_r($this_filter,true);
+        $criteria->where($this_filter);
+        if ($results = $modx->getIterator('modTemplateVarResource',$criteria))
+        {
+            $this_set = array();
+            foreach ($results as $r)
+            {
+                $this_set[] = $r->get('contentid');
+            }
+            $intersects[] = $this_set;
+        }
+    }
+}
+
+$record_count = count($intersects);
+if ($record_count > 1)
+{
+    $intersects = call_user_func_array('array_intersect', $intersects);
+}
+// Page ids here!
+$intersects = array_values($intersects);
+
+
+$real_cols = array(); // real columns in modx_site_content
+$virtual_cols = array(); // virtual columns are TVs
+if ($select != '*') {
+    $cols = explode(',',$select);
+    $cols = array_map('trim', $cols);
+    $virtual_cols = array_diff($cols, $page_cols);
+    $real_cols = array_intersect($page_cols, $cols);
+    if (!in_array('id', $real_cols))
+    {
+        $real_cols[] = 'id'; // make sure we have the pk
+    }
+
+}
+
+
 
 $data = array();
-$record_count = 0;
-// Run raw sql?
-if ($sql) {
-    // include SQL_CALC_FOUND_ROWS in your query
-    if ($limit) {
-        $sql .= ' LIMIT '.$limit;
-        if ($offset) {
-            $sql .= ' OFFSET '.$offset;    
-        }
-    }
-    // Quote any placeholders in case they are used in the query
-    $ph = array();
-    foreach ($placeholder_keys as $k) {
-        $ph[$k] = $modx->quote($modx->getPlaceholder($k));
-        $sql = str_replace('[[+'.$k.']]', $ph[$k], $sql);
-    }
-    if ($debug) {
-        return '<div><h2><code>Query</code> Snippet Debug</h2><h3>Raw SQL</h3><textarea rows="10" cols="60">'.$sql.'</textarea>
-            <h3>Placeholders</h3>
-            <textarea rows="10" cols="60">'.print_r($ph,true).'</textarea>
-            <h3>POST</h3>
-            <textarea rows="10" cols="60">'.print_r($_POST,true).'</textarea>
-        </div>';
-    }
+$tvdata = array();
 
-    $result = $modx->query($sql);
-    $data = $result->fetchAll(PDO::FETCH_ASSOC);
 
-    $result2 = $modx->query('SELECT FOUND_ROWS() as total_pages');
-    $data2 = $result2->fetch(PDO::FETCH_ASSOC);
-    //return '<pre>'.print_r($data2,true).'</pre>';
-    $record_count = $data2['total_pages'];
+/*
+ * Load up TVs.  Format should be:
+ * array(
+ *  [page_id] => array(
+ *      [tv-name] => tv-value
+ *      [other-tv-name] => other value
+ *   ),
+ *   // ...etc...
+ * )
+ */
+
+$criteria = $modx->newQuery('modTemplateVarResource');
+
+// Get 'em all
+if (empty($virtual_cols)) {
+    $this_filter = array(
+        'contentid:IN' => $intersects,
+    );
 }
-else {    
-    $cols = array();
-    if ($select != '*') {
-        $cols = explode(',',$select);
-        $cols = array_map('trim', $cols);
+// Only get the ones specified
+else
+{
+    $virtual_col_ids = array();
+    foreach ($virtual_cols as $vc)
+    {
+        $virtual_col_ids[] = $tvlookup_by_name[$vc];
     }
+    $this_filter = array(
+        'contentid:IN' => $intersects,
+        'tmplvarid:IN' => $virtual_col_ids
+    );
+}
 
-    $criteria = $modx->newQuery($classname);
-    // Graphing potentially needs *all* fields to function, so forcefully restricting it via "select" it is not rec'd
-    if (!$graph) {
-        $criteria->select($select);
+$criteria->where($this_filter);
+if ($results = $modx->getIterator('modTemplateVarResource',$criteria))
+{
+    foreach ($results as $r)
+    {
+        $tvdata[ $r->get('contentid') ][ $tvlookup_by_id[$r->get('tmplvarid')] ] = $r->get('value');
     }
-    $criteria->where($filters);
-    $record_count = $modx->getCount($classname,$criteria);
-    $criteria->limit($limit, $offset); 
-    if ($sortby) {
-        $criteria->sortby($sortby,$sortdir);
-    }
+}
 
-    if ($graph) {
-        $results = $modx->getCollectionGraph($classname,$graph,$criteria);
+// Load up the base pages
+$criteria = $modx->newQuery('modResource');
+$criteria->select($real_cols); // Only the built-in columns here
+$criteria->where(array('id:IN'=>$intersects));
 
-        //$criteria->bindGraph($graph);
-        //return print_r($results,true);
-    }
-    else {
-        $results = $modx->getCollection($classname,$criteria);
-    }
-    // TODO: More info displayed here
-    if ($debug) {
-        $criteria->prepare();
-        return '<div><h2><code>Query</code> Snippet Debug</h2><h3>Raw SQL</h3><textarea rows="10" cols="60">'.$criteria->toSQL().'</textarea>
-            <h3>POST</h3>
-            <textarea rows="10" cols="60">'.print_r($_POST,true).'</textarea>
-            <h3>Control Parameters</h3>
-            <textarea rows="10" cols="60">'.print_r($control_params,true).'</textarea>
-            <h3>Filters</h3>
-            <textarea rows="10" cols="60">'.print_r($filters,true).'</textarea>
-        </div>';
-    }
+$criteria->limit($limit, $offset);
+if ($sortby)
+{
+    $criteria->sortby($sortby,$sortdir);
+}
 
+
+// Load up pages
+if($results = $modx->getCollection('modResource',$criteria))
+{
     foreach ($results as $r) {
-        // Cheap trick to flatten the hierarchy using toPlaceholders
-        if ($graph) {
-            $keys = $modx->toPlaceholders($r->toArray('',false,true,$graph),'tmp'); // without period
-        }
-        else {
-            $keys = $modx->toPlaceholders($r->toArray(),'tmp'); // without period
-        }
-
-        $this_row = array();
-        // Cols are set only when $graph && $select
-        if ($cols) {
-            foreach ($cols as $k) {
-                // $k seems to come out clean when $select is used
-                $this_row[$k] = $modx->getPlaceholder('tmp.'.$k); // with period
+        $this_row = $r->toArray('',false,true);
+            if (isset($tvdata[ $r->get('id') ]))
+            {
+                $this_row = array_merge($this_row, $tvdata[ $r->get('id') ]);
             }
-        }
-        else {
-            foreach ($keys['keys'] as $k) {
-                $clean_k = substr($k,4); // remove the tmp.
-                $this_row[$clean_k] = $modx->getPlaceholder($k); 
-            }
-        }
         $data[] = $this_row;
     }
-
 }
-
+//return "<pre>".print_r($data, true);
 if (empty($data)) {
-    $modx->log(xPDO::LOG_LEVEL_DEBUG,'[Query] No output.');
+    $modx->log(xPDO::LOG_LEVEL_DEBUG,'[queryResources] No output.');
     return '';
 }
 
@@ -357,7 +444,7 @@ $pagination_links = '';
 
 // Pagination
 if ($limit && $record_count > $limit) {
-    
+
     //Pagination\Pager::style($style);
     $pagination_links = Pagination\Pager::links($record_count, $offset, $limit)
         ->setBaseUrl($modx->makeUrl($modx->resource->get('id'),'','','abs'))
@@ -367,7 +454,7 @@ if ($limit && $record_count > $limit) {
 
 // Default formatting (via a PHP view)
 if (!$tpl && !$tplOuter) {
-    $view_file = $core_path.'views/'.basename($view,'.php').'.php';    
+    $view_file = $core_path.'views/'.basename($view,'.php').'.php';
     if (!file_exists($view_file)) {
         $view_file = $view;
         if (!file_exists($view_file)) {
@@ -386,14 +473,14 @@ elseif($tpl) {
     if (!$innerChunk = $modx->getObject('modChunk', array('name' => $tpl))) {
         $use_tmp_chunk = true; // No chunk was passed... a formatting string was passed instead.
     }
-    
+
     foreach ($data as $r) {
         if (is_object($r)) $r = $r->toArray('',false,false,true); // Handle xPDO objects
         // Use a temporary Chunk when dealing with raw formatting strings
         if ($use_tmp_chunk) {
             $uniqid = uniqid();
             $innerChunk = $modx->newObject('modChunk', array('name' => "{tmp-inner}-{$uniqid}"));
-            $innerChunk->setCacheable(false);    
+            $innerChunk->setCacheable(false);
             $out .= $innerChunk->process($r, $tpl);
         }
         // Use getChunk when a chunk name was passed
@@ -406,11 +493,11 @@ elseif($tpl) {
 if ($tplOuter) {
     $props = array('content'=>$out);
     // Formatting String
-    if (!$outerChunk = $modx->getObject('modChunk', array('name' => $tplOuter))) {  
+    if (!$outerChunk = $modx->getObject('modChunk', array('name' => $tplOuter))) {
         $uniqid = uniqid();
         $outerChunk = $modx->newObject('modChunk', array('name' => "{tmp-outer}-{$uniqid}"));
-        $outerChunk->setCacheable(false);    
-        $out = $outerChunk->process($props, $tplOuter);        
+        $outerChunk->setCacheable(false);
+        $out = $outerChunk->process($props, $tplOuter);
     }
     // Chunk Name
     else {
