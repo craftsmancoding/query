@@ -1,10 +1,11 @@
 # Query
 
 
-Query offers a Snippet-interface for xPDO's getCollection method.  This allows you to query 
+`Query` and its sister Snippet `queryResources` offer a Snippet-interface for xPDO's getCollection method.  This allows you to query 
 *any* MODX database collection and format the output, including pagination.  Query can be used
-as a replacement for getResources: it offers more flexibility because it's not 
-constrained to fetching only resources.
+as a replacement for getResources: it offers more flexibility because it's not constrained to fetching only resources.
+`queryResources` is dedicated solely to querying on resources, and it helps you navigate the sometimes difficult task 
+of filtering on template variables.
 
 <a href="https://www.youtube.com/watch?v=RaUHvJDTkYQ&feature=youtu.be" target="_blank"><img src="http://img.youtube.com/vi/RaUHvJDTkYQ/0.jpg" 
 alt="Query Overview" width="480" height="360" border="10" /></a>

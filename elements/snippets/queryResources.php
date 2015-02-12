@@ -3,6 +3,9 @@
  * @name queryResources
  * @description Like Query, but only for searching on modResource using TV optimizations. Filter arguments include modResource column names and any TV names.
  *
+ *
+ *  Sortby only works for regular columns.
+ *
  * There are 3 types of queries that could be triggers:
  *  1. Filters applied to modx_site_content columns
  *  2. Filters applied to TV (i.e. virtual columns)
@@ -37,7 +40,6 @@
  * Control Parameters
  * ------------------
  * All "control" parameters begin with an underscore. They affect the functionality or formatting of the output.
- *
 
  *  _tpl (string) chunk or formatting-string to format each record in the collection
  *  _tplOuter (string) chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
@@ -54,11 +56,16 @@
  *      Corresponding file must exist inside the config directory, e.g. "default.config.php"
  *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
  *  _debug (integer) triggers debugging information to be set.
+ *  _map (string) a JSON hash used to rename any output attributes. This was developed so you could easily use this
+ *              Snippet in Ajax requests.  E.g. if your Ajax script required the results include attributes named
+ *              "city" and "desc" but your pages stored this info in the pagetitle and description fields, you can
+ *              re-map the values by setting `{"pagetitle":"city","description":"desc"}  i.e. OLD Value:New Value
  *
  * Filter Parameters
  * ----------------
- * All other parameters act as query filters and they depend on the collection being queried.
  * Any parameter that does not begin with an underscore is considered a filter parameter.
+ * A filter parameter should be a regular column from the modx_site_content table, otherwise
+ * it is considered a TV name (i.e. a virtual column)
  *
  *
  * Input Operators
@@ -80,13 +87,13 @@
  *
  * Value Modifiers
  * ---------------
- * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query Snippet supports
- * dynamic inputs via its own "value modifiers" that mimic the syntax used by MODX for its output
+ * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query & queryResources Snippets support
+ * dynamic inputs via "value modifiers" that mimic the syntax used by MODX for its output
  * filters (aka "output modifiers).  This is useful for building search forms or enabling pagination.
- * For example, you can change the &_sortby argument dynamically by setting a URL parameter, then you
- * can adjust your Query snippet call to read the "sortby" $_GET variable:
+ * For example, you can change the &id argument dynamically by setting a URL parameter, then you
+ * can adjust your Query snippet call to read the $_GET['pageid'] variable:
  *
- *      [[!Query? &_sortby=`sortby:get`]]
+ *      [[!queryResources? &id=`pageid:get`]]
  *
  * There are 3 value modifiers included:
  *
@@ -109,9 +116,6 @@
  * @var $modx modX
  * @var $scriptProperties array
  *
- * $modx->getAggregates() and getComposites() or you can access the $obj->_aggregates and $obj->_composites directly
- * $graph = $xpdo->getGraph('Classname', 1)
- * print_r($modx->classMap) -- lets you trace out all avail. objects
  * @package query
  */
 
@@ -467,7 +471,8 @@ if (!$tpl && !$tplOuter) {
     $out = ob_get_contents();
     ob_end_clean();
 }
-elseif($tpl) {
+elseif($tpl)
+{
 
     $use_tmp_chunk = false;
     if (!$innerChunk = $modx->getObject('modChunk', array('name' => $tpl))) {
