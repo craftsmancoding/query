@@ -134,7 +134,7 @@ foreach ($tvs as $t)
     $tvlookup_by_id[$t->get('id')] = $t->get('name');
 }
 $page_cols = array_keys($modx->getFields('modResource'));
-//return print_r($tvlookup_by_name,true);
+
 
 // TODO: Restricted properties (cannot use the get: and post: convenience methods)
 // Process the raw $scriptProperties into filters and control_params.
@@ -274,12 +274,6 @@ foreach ($scriptProperties as $k => $v) {
     }
 }
 
-
-
-//return '<pre>'.print_r($array,true).'</pre>';
-//return '<pre>'.print_r($filters,true).'</pre>';
-//return '<pre>'.print_r($tvfilters,true).'</pre>';
-
 // Read the control arguments
 $tpl = $modx->getOption('_tpl', $control_params);
 $tplOuter = $modx->getOption('_tplOuter', $control_params);
@@ -295,6 +289,17 @@ $select = $modx->getOption('_select', $control_params,'*');
 $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOption('log_level'));
 $config = basename($modx->getOption('_config', $control_params,'default'),'.config.php');
 $debug = (int) $modx->getOption('_debug', $control_params);
+$map = $modx->getOption('_map', $control_params);
+
+if ($map && !is_array($map))
+{
+    $map = json_decode($map,true);
+    if(!is_array($map))
+    {
+        $modx->log(xPDO::LOG_LEVEL_DEBUG,'[queryResources] _map input must be a valid JSON hash');
+    }
+}
+
 
 $old_log_level = $modx->setLogLevel($log_level);
 
@@ -321,14 +326,13 @@ if ($tvfilters)
 {
     foreach($tvfilters as $tf)
     {
-        //return '<pre>'.print_r($tf,true);
         $criteria = $modx->newQuery('modTemplateVarResource');
         $criteria->select('contentid');
         $this_filter = array(
             'tmplvarid' => $tvlookup_by_name[$tf['tvname']],
             $tf['filter'] => $tf['value']
         );
-        //return '<pre>'.print_r($this_filter,true);
+
         $criteria->where($this_filter);
         if ($results = $modx->getIterator('modTemplateVarResource',$criteria))
         {
@@ -347,9 +351,21 @@ if ($record_count > 1)
 {
     $intersects = call_user_func_array('array_intersect', $intersects);
 }
+else
+{
+    $intersects = array_shift($intersects);
+}
 // Page ids here!
 $intersects = array_values($intersects);
 
+if ($debug) {
+    return '<div><h2><code>queryResources</code> Snippet Debug</h2><h3>Primary Filters</h3><textarea rows="10" cols="60">'.print_r($filters,true).'</textarea>
+        <h3>TV Filters</h3>
+        <textarea rows="10" cols="60">'.print_r($tvfilters,true).'</textarea>
+        <h3>Matching Page IDs</h3>
+        <textarea rows="10" cols="60">'.print_r($intersects,true).'</textarea>
+    </div>';
+}
 
 $real_cols = array(); // real columns in modx_site_content
 $virtual_cols = array(); // virtual columns are TVs
@@ -362,7 +378,6 @@ if ($select != '*') {
     {
         $real_cols[] = 'id'; // make sure we have the pk
     }
-
 }
 
 
@@ -385,7 +400,7 @@ $tvdata = array();
 $criteria = $modx->newQuery('modTemplateVarResource');
 
 // Get 'em all
-if (empty($virtual_cols)) {
+if (empty($virtual_cols) && $select == '*') {
     $this_filter = array(
         'contentid:IN' => $intersects,
     );
@@ -403,10 +418,12 @@ else
         'tmplvarid:IN' => $virtual_col_ids
     );
 }
-
+// TODO: don't issue this query unless you need to
 $criteria->where($this_filter);
-if ($results = $modx->getIterator('modTemplateVarResource',$criteria))
+
+if ($results = $modx->getCollection('modTemplateVarResource',$criteria))
 {
+    //return $criteria->toSQL();
     foreach ($results as $r)
     {
         $tvdata[ $r->get('contentid') ][ $tvlookup_by_id[$r->get('tmplvarid')] ] = $r->get('value');
@@ -430,14 +447,25 @@ if($results = $modx->getCollection('modResource',$criteria))
 {
     foreach ($results as $r) {
         $this_row = $r->toArray('',false,true);
-            if (isset($tvdata[ $r->get('id') ]))
+        if (isset($tvdata[ $r->get('id') ]))
+        {
+            $this_row = array_merge($this_row, $tvdata[ $r->get('id') ]);
+        }
+        // Map...
+        if ($map)
+        {
+            foreach ($map as $old => $new)
             {
-                $this_row = array_merge($this_row, $tvdata[ $r->get('id') ]);
+                if (isset($this_row[$old]))
+                {
+                   $this_row[$new] = $this_row[$old];
+                   unset($this_row[$old]);
+                }
             }
+        }
         $data[] = $this_row;
     }
 }
-//return "<pre>".print_r($data, true);
 if (empty($data)) {
     $modx->log(xPDO::LOG_LEVEL_DEBUG,'[queryResources] No output.');
     return '';
@@ -449,7 +477,6 @@ $pagination_links = '';
 // Pagination
 if ($limit && $record_count > $limit) {
 
-    //Pagination\Pager::style($style);
     $pagination_links = Pagination\Pager::links($record_count, $offset, $limit)
         ->setBaseUrl($modx->makeUrl($modx->resource->get('id'),'','','abs'))
         ->style($style);
