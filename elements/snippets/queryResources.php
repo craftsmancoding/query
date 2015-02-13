@@ -122,7 +122,7 @@
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
 require_once $core_path .'vendor/autoload.php';
 
-// CACHE THIS
+// TODO: CACHE THIS
 $query = $modx->newQuery('modTemplateVar');
 $query->select(array('id','name'));
 $tvs = $modx->getCollection('modTemplateVar', $query);
@@ -326,6 +326,8 @@ if ($tvfilters)
 {
     foreach($tvfilters as $tf)
     {
+        if (empty($tf['value'])) continue;
+        
         $criteria = $modx->newQuery('modTemplateVarResource');
         $criteria->select('contentid');
         $this_filter = array(
@@ -346,8 +348,8 @@ if ($tvfilters)
     }
 }
 
-$record_count = count($intersects);
-if ($record_count > 1)
+
+if (count($intersects) > 1)
 {
     $intersects = call_user_func_array('array_intersect', $intersects);
 }
@@ -357,7 +359,7 @@ else
 }
 // Page ids here!
 $intersects = array_values($intersects);
-
+$record_count = count($intersects);
 if ($debug) {
     return '<div><h2><code>queryResources</code> Snippet Debug</h2><h3>Primary Filters</h3><textarea rows="10" cols="60">'.print_r($filters,true).'</textarea>
         <h3>TV Filters</h3>

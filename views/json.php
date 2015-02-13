@@ -5,7 +5,7 @@ stores.
 ------------------------------------------------------------------------------*/
 $data = array(
     'results' => $data,
-    'total' => $page_count,
+    'total' => $record_count,
 );
 print json_encode($data);
 /*EOF*/
