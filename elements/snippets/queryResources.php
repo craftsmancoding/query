@@ -118,6 +118,19 @@
  *
  * @package query
  */
+// Caching needs to encapsulate changes in GET and POST since input filters mean that the $scriptProperties may not change
+$cache_opts = array(xPDO::OPT_CACHE_KEY => 'query');
+$lifetime = 0;
+$fingerprint = md5('queryResources'.serialize(array($scriptProperties,$_POST,$_GET)));
+if ($results = $modx->cacheManager->get($fingerprint, $cache_opts))
+{
+    $modx->log(xPDO::LOG_LEVEL_INFO,'[queryResources] returning results from cache.');
+    $modx->setPlaceholder('page_count',$results['page_count']);
+    $modx->setPlaceholder('results',$results['results']);
+    $modx->setPlaceholder('pagination_links',$results['pagination_links']);
+
+    return $results['results'];
+}
 
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
 require_once $core_path .'vendor/autoload.php';
@@ -544,5 +557,14 @@ $modx->setPlaceholder('page_count',$page_count);
 $modx->setPlaceholder('results',$out);
 $modx->setPlaceholder('pagination_links',$pagination_links);
 $modx->setLogLevel($old_log_level);
+
+$results = array(
+    'page_count' => $page_count,
+    'results' => $out,
+    'pagination_links' => $pagination_links,
+);
+
+// Cache the lookup
+$modx->cacheManager->set($fingerprint, $results, $lifetime, $cache_opts);
 
 return $out;
