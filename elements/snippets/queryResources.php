@@ -51,7 +51,7 @@
  *  _sortby (string) column to sort by
  *  _sortdir (string) sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
  *  _style (string) one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
- *  _select (string) controls which columns to select for a getCollection. Default: *
+ *  _select (string) controls which columns to select for a getIterator. Default: *
  *  _config (string) sets a pagination formatting pallette, e.g. "default".
  *      Corresponding file must exist inside the config directory, e.g. "default.config.php"
  *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
@@ -135,17 +135,29 @@ if ($results = $modx->cacheManager->get($fingerprint, $cache_opts))
 $core_path = $modx->getOption('query.core_path','',MODX_CORE_PATH.'components/query/');
 require_once $core_path .'vendor/autoload.php';
 
-// TODO: CACHE THIS
-$query = $modx->newQuery('modTemplateVar');
-$query->select(array('id','name'));
-$tvs = $modx->getCollection('modTemplateVar', $query);
-$tvlookup_by_name = array();
-$tvlookup_by_id = array();
-foreach ($tvs as $t)
+// Read TVs from Cache
+if (!$tvlookup_by_name = $modx->cacheManager->get('tvlookup_by_name', $cache_opts))
 {
-    $tvlookup_by_name[$t->get('name')] = $t->get('id');
-    $tvlookup_by_id[$t->get('id')] = $t->get('name');
+    $query = $modx->newQuery('modTemplateVar');
+    $query->select(array('id','name'));
+    $tvs = $modx->getIterator('modTemplateVar', $query);
+    $tvlookup_by_name = array();
+    $tvlookup_by_id = array();
+    foreach ($tvs as $t)
+    {
+        $tvlookup_by_name[$t->get('name')] = $t->get('id');
+        $tvlookup_by_id[$t->get('id')] = $t->get('name');
+    }
+
+    $modx->cacheManager->set('tvlookup_by_name', $tvlookup_by_name, $lifetime, $cache_opts);
+    $modx->cacheManager->set('tvlookup_by_id', $tvlookup_by_id, $lifetime, $cache_opts);
 }
+
+$tvlookup_by_name = $modx->cacheManager->get('tvlookup_by_name', $cache_opts);
+$tvlookup_by_id = $modx->cacheManager->get('tvlookup_by_id', $cache_opts);
+
+
+
 $page_cols = array_keys($modx->getFields('modResource'));
 
 
@@ -402,7 +414,8 @@ $tvdata = array();
 
 
 /*
- * Load up TVs.  Format should be:
+ * Load up TVs ONLY when needed (i.e. if virtual columns were specified)
+ * Format should be:
  * array(
  *  [page_id] => array(
  *      [tv-name] => tv-value
@@ -411,40 +424,35 @@ $tvdata = array();
  *   // ...etc...
  * )
  */
-
-$criteria = $modx->newQuery('modTemplateVarResource');
+if ($virtual_cols || $select == '*') {
+    $criteria = $modx->newQuery('modTemplateVarResource');
 
 // Get 'em all
-if (empty($virtual_cols) && $select == '*') {
-    $this_filter = array(
-        'contentid:IN' => $intersects,
-    );
-}
-// Only get the ones specified
-else
-{
-    $virtual_col_ids = array();
-    foreach ($virtual_cols as $vc)
-    {
-        $virtual_col_ids[] = $tvlookup_by_name[$vc];
+    if (empty($virtual_cols) && $select == '*') {
+        $this_filter = array(
+            'contentid:IN' => $intersects,
+        );
+    } // Only get the ones specified
+    else {
+        $virtual_col_ids = array();
+        foreach ($virtual_cols as $vc) {
+            $virtual_col_ids[] = $tvlookup_by_name[$vc];
+        }
+        $this_filter = array(
+            'contentid:IN' => $intersects,
+            'tmplvarid:IN' => $virtual_col_ids
+        );
     }
-    $this_filter = array(
-        'contentid:IN' => $intersects,
-        'tmplvarid:IN' => $virtual_col_ids
-    );
-}
-// TODO: don't issue this query unless you need to
-$criteria->where($this_filter);
 
-if ($results = $modx->getCollection('modTemplateVarResource',$criteria))
-{
-    //return $criteria->toSQL();
-    foreach ($results as $r)
-    {
-        $tvdata[ $r->get('contentid') ][ $tvlookup_by_id[$r->get('tmplvarid')] ] = $r->get('value');
+    $criteria->where($this_filter);
+
+    if ($results = $modx->getIterator('modTemplateVarResource', $criteria)) {
+        //return $criteria->toSQL();
+        foreach ($results as $r) {
+            $tvdata[$r->get('contentid')][$tvlookup_by_id[$r->get('tmplvarid')]] = $r->get('value');
+        }
     }
 }
-
 // Load up the base pages
 $criteria = $modx->newQuery('modResource');
 $criteria->select($real_cols); // Only the built-in columns here
@@ -458,7 +466,7 @@ if ($sortby)
 
 
 // Load up pages
-if($results = $modx->getCollection('modResource',$criteria))
+if($results = $modx->getIterator('modResource',$criteria))
 {
     foreach ($results as $r) {
         $this_row = $r->toArray('',false,true);
