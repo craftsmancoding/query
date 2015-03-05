@@ -41,25 +41,22 @@
  * ------------------
  * All "control" parameters begin with an underscore. They affect the functionality or formatting of the output.
 
- *  _tpl (string) chunk or formatting-string to format each record in the collection
- *  _tplOuter (string) chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
- *  _view (string) oldschool php file to format the output, see the views folder.
+ *  @param string _tpl chunk or formatting-string to format each record in the collection
+ *  @param string  _tplOuter chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
+ *  @param string _view oldschool php file to format the output, see the views folder.
  *      Some samples are provided, e.g. 'table', 'json'. If _tpl
  *      and _tplOuter are provided, the _view parameter is ignored.  Default: table.php
- *  _limit (integer) limits the number of results returned, also sets the results shown per page.
- *  _offset (integer) offsets the first record returned, e.g. for pagination.
- *  _sortby (string) column to sort by
- *  _sortdir (string) sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
- *  _style (string) one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
- *  _select (string) controls which columns to select for a getIterator. Default: *
- *  _config (string) sets a pagination formatting pallette, e.g. "default".
+ *  @param integer _limit limits the number of results returned, also sets the results shown per page.
+ *  @param integer _offset offsets the first record returned, e.g. for pagination.
+ *  @param string _sortby column to sort by
+ *  @param string _sortdir sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
+ *  @param string _style one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
+ *  @param string _select controls which columns to select for a getIterator. Default: *
+ *  @param string _config sets a pagination formatting pallette, e.g. "default".
  *      Corresponding file must exist inside the config directory, e.g. "default.config.php"
- *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
- *  _debug (integer) triggers debugging information to be set.
- *  _map (string) a JSON hash used to rename any output attributes. This was developed so you could easily use this
- *              Snippet in Ajax requests.  E.g. if your Ajax script required the results include attributes named
- *              "city" and "desc" but your pages stored this info in the pagetitle and description fields, you can
- *              re-map the values by setting `{"pagetitle":"city","description":"desc"}  i.e. OLD Value:New Value
+ *  @param integer _log_level overrides the MODX log_level system setting. Defaults to System Setting.
+ *  @param boolean _debug triggers debugging information to be set.
+ *  @param string _rename JSON hash used to rename any output attributes, for easier use in Ajax requests. E.g. if your Ajax script required the results include attributes named "city" and "desc" but your pages stored this info in the pagetitle and description fields, you can rename the values by setting `{"pagetitle":"city","description":"desc"}  i.e. OLD Value:New Value
  *
  * Filter Parameters
  * ----------------
@@ -85,7 +82,7 @@
  *  ENDS_WITH behaves like "LIKE", but quotes the value as '%value'
  *
  *
- * Value Modifiers
+ * Input Value Modifiers
  * ---------------
  * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query & queryResources Snippets support
  * dynamic inputs via "value modifiers" that mimic the syntax used by MODX for its output
@@ -314,12 +311,12 @@ $select = $modx->getOption('_select', $control_params,'*');
 $log_level = (int) $modx->getOption('_log_level', $control_params,$modx->getOption('log_level'));
 $config = basename($modx->getOption('_config', $control_params,'default'),'.config.php');
 $debug = (int) $modx->getOption('_debug', $control_params);
-$map = $modx->getOption('_map', $control_params);
+$rename = $modx->getOption('_rename', $control_params);
 
-if ($map && !is_array($map))
+if ($rename && !is_array($rename))
 {
-    $map = json_decode($map,true);
-    if(!is_array($map))
+    $rename = json_decode($rename,true);
+    if(!is_array($rename))
     {
         $modx->log(xPDO::LOG_LEVEL_DEBUG,'[queryResources] _map input must be a valid JSON hash');
     }
@@ -475,9 +472,9 @@ if($results = $modx->getIterator('modResource',$criteria))
             $this_row = array_merge($this_row, $tvdata[ $r->get('id') ]);
         }
         // Map...
-        if ($map)
+        if ($rename)
         {
-            foreach ($map as $old => $new)
+            foreach ($rename as $old => $new)
             {
                 if (isset($this_row[$old]))
                 {

@@ -14,3 +14,8 @@ Going public
 - Cleanup of composer.json (whoops)
 - Fixed bug in setting default values for input value modifiers
 - Improved pagination logic
+
+1.3.0
+---------------------------------
+- Addition of the queryResources Snippet for easier and more flexible queries on modResource collections
+- Custom cache partition added

@@ -19,30 +19,26 @@
  * ------------------
  * All "control" parameters begin with an underscore. They affect the functionality or formatting of the output.
  *
- *  _classname (string) classname of the object collection you are querying. Default: modResource
- *  _pkg (string) colon-separated string defining the arguments for addPackage() -- 
- *      package_name, model_path, and optionally table_prefix  
- *      e.g. `tiles:[[++core_path]]components/tiles/model/:tiles_` or 
- *      If only the package name is supplied, the path is assumed to be "[[++core_path]]components/$package_name/model/"
- *  _tpl (string) chunk or formatting-string to format each record in the collection
- *  _tplOuter (string) chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
- *  _view (string) oldschool php file to format the output, see the views folder.  
+ *  @param string _classname classname of the object collection you are querying. [default=modResource]
+ *  @param string _pkg colon-separated string defining the arguments for addPackage() - package_name, model_path, and optionally table_prefix e.g. `tiles:[[++core_path]]components/tiles/model/:tiles_` or if only the package name is supplied, the path is assumed to be "[[++core_path]]components/$package_name/model/"
+ *  @param string _tpl chunk or formatting-string to format each record in the collection
+ *  @param string _tplOuter chunk or formatting-string to wrap the result set. Requires the [[+content]] placeholder.
+ *  @param string _view oldschool php file to format the output, see the views folder.
  *      Some samples are provided, e.g. 'table', 'json'. If _tpl
  *      and _tplOuter are provided, the _view parameter is ignored.  Default: table.php
- *  _limit (integer) limits the number of results returned, also sets the results shown per page. 
- *  _offset (integer) offsets the first record returned, e.g. for pagination.
- *  _sortby (string) column to sort by
- *  _sortdir (string) sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
- *  _sql (string) used to issue a raw SQL query.
- *  _style (string) one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
- *  _graph (string) triggers a getCollectionGraph.
- *  _select (string) controls which columns to select for a getCollection. Ignored when _graph is set. Default: *
- *  _config (string) sets a pagination formatting pallette, e.g. "default". 
- *      Corresponding file must exist inside the config directory, e.g. "default.config.php"
- *  _log_level (integer) overrides the MODX log_level system setting. Defaults to System Setting.
- *  _debug (integer) triggers debugging information to be set.
+ *  @param integer _limit limits the number of results returned, also sets the results shown per page.
+ *  @param integer _offset offsets the first record returned, e.g. for pagination.
+ *  @param string _sortby column to sort by
+ *  @param string _sortdir sort direction. Usually ASC or DESC, but may also contain complex sorting rules.
+ *  @param string _sql used to issue a raw SQL query.
+ *  @param string _style one of Pagination's styles (see https://github.com/craftsmancoding/pagination)
+ *  @param string _graph triggers a getCollectionGraph.
+ *  @param string _select controls which columns to select for a getCollection. Ignored when _graph is set. Default: *
+ *  @param string _config sets a pagination formatting pallette, e.g. "default". Corresponding file must exist inside the config directory, e.g. "default.config.php"
+ *  @param integer _log_level overrides the MODX log_level system setting. Defaults to System Setting.
+ *  @param boolean _debug triggers debugging information to be set.
  *
- * Filter Paramters
+ * Filter Parameters
  * ----------------
  * All other parameters act as query filters and they depend on the collection being queried.
  * Any parameter that does not begin with an underscore is considered a filter parameter.
@@ -65,7 +61,7 @@
  *  ENDS_WITH behaves like "LIKE", but quotes the value as '%value' 
  *
  * 
- * Value Modifiers
+ * Input Value Modifiers
  * ---------------
  * Inspired by MODX's Output Filters (see http://goo.gl/bSzfwi), the Query Snippet supports 
  * dynamic inputs via its own "value modifiers" that mimic the syntax used by MODX for its output 
