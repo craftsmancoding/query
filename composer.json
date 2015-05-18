@@ -28,7 +28,7 @@
     "extra": {
         "package_name": "Query",
         "namespace": "query",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "release": "pl",
         "category":"Query"
     }

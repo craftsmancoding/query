@@ -1,10 +1,10 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "b3fdaa1cf76df526a72d91954825e57a",
+    "hash": "a2511500f339fdd7abb7f2beef75dcb1",
     "packages": [
         {
             "name": "craftsmancoding/pagination",
@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/craftsmancoding/pagination.git",
-                "reference": "ae594cc6e97d95e7924142e398a3fe377f2beb49"
+                "reference": "3253a367e8fd2ba626cf3c27041fd05451c33103"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/craftsmancoding/pagination/zipball/ae594cc6e97d95e7924142e398a3fe377f2beb49",
-                "reference": "ae594cc6e97d95e7924142e398a3fe377f2beb49",
+                "url": "https://api.github.com/repos/craftsmancoding/pagination/zipball/3253a367e8fd2ba626cf3c27041fd05451c33103",
+                "reference": "3253a367e8fd2ba626cf3c27041fd05451c33103",
                 "shasum": ""
             },
             "require": {
@@ -40,24 +40,19 @@
             "keywords": [
                 "pagination"
             ],
-            "time": "2014-10-27 07:44:30"
+            "time": "2014-10-27 16:07:28"
         }
     ],
-    "packages-dev": [
-
-    ],
-    "aliases": [
-
-    ],
+    "packages-dev": [],
+    "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
         "craftsmancoding/pagination": 20
     },
     "prefer-stable": false,
+    "prefer-lowest": false,
     "platform": {
         "php": ">=5.3"
     },
-    "platform-dev": [
-
-    ]
+    "platform-dev": []
 }
